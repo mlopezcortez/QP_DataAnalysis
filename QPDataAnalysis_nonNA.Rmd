@@ -11,7 +11,7 @@ output:
 ---
 
 ```{r "setup", include=FALSE}
-#Set working directory, load required packages
+#Load required packages
 #library(RColorBrewer)
 library(rdist)
 library(ggrepel)
@@ -43,6 +43,55 @@ figs <- subset(dataset, select = -c(Root,Participant))
 superheat(figs, heat.na.col = "white", n.clusters.cols = 8, clustering.method = 'hierarchical', bottom.label = "variable", bottom.label.text.size = 2, bottom.label.text.angle = 90)
 ```
 
+Below is the number of 0s for each theme/figure tested. This will be useful later in the code. I start by taking into account all themes for the analysis, and then will compare the model to another one which discards themes with many 0s.
+
+```{r}
+# Create table with number of 0s, 1s, 0.5s and NAs per figure/theme - TO BE DONE
+figs <- lapply(figs, as.factor)
+summary <- summary(figs$suum)
+summary(figs$tuunich)
+summary(figs$nook)
+summary(figs$che)
+summary(figs$wiinik)
+summary(figs$peek)
+summary(figs$kaan)
+summary(figs$taablaklaabos)
+summary(figs$nalhek)
+summary(figs$xim)
+summary(figs$kamyoon)
+summary(figs$ha)
+summary(figs$plastilina)
+summary(figs$luuch)
+summary(figs$poomo)
+summary(figs$maaskab)
+summary(figs$hun)
+summary(figs$arena)
+
+# Calculate percentage of 0s per theme/figure - TO BE DONE
+
+# GOT SELECTED: suum,tuunich,nook,che,wiinik,peek,kaan,kamyoon (<0.9)
+# suum: (624/792) = 0.79
+# tuunich: (679/792) = 0.86
+# nook: (630/792) = 0.8 
+# che: (478/792) = 0.6 
+# wiinik: (475/792) = 0.6
+# peek: (512/792) = 0.65
+# kaan: (600/792) = 0.76
+# kamyoon: (689/792) = 0.87
+# taablaklaabos: (746/792) = 0.94
+# nalhek: (752/792) = 0.95
+# xim: (745/792) = 0.94
+# ha: (766/792) = 0.97 
+# plastilina: (745/792) = 0.94
+# luuch: (758/792) = 0.96
+# poomo: (758/792) = 0.96
+# maaskab: (762/792) = 0.96
+# hun: (716/792) = 0.91
+# arena: (775/792) = 0.97
+
+```
+
+
 For each root+figure/theme pair, the idea is to find the proportion of speakers that found that pair acceptable. In a previous analysis, I summed over each participant response for a given root+theme pair and divided that for the total number of participants. 
 In this second analysis, I summed over each participant response for a given root+theme pair and divided that for the number of participants EXCLUDING NAs. Here's an example:
 
@@ -71,9 +120,10 @@ boch'     | SME             | 0.5
 
 So 2/6 = 0.3 acceptability for the boch'+kamyoon pair.
 
+The following chunk of code below deals with this. The first six rows of the new dataframe with the proportions of acceptability per root are printed after the code. Note that the list of roots is excluded from this dataframe but saved in a new vector named "rootnames". This is to be able to perform the MDS analysis. The rootnames will be attached again later in the code. 
+
 ```{r, include=FALSE}
 # Calculate the proportion of speakers that found each root+theme pair acceptable
-# In this analysis below, NAs are not taken into account, so for ak above, eg, the proportion would be 5/5 = 1
 # This chunk of code can be improved to avoid repetition of the same code for each theme/figure - TO BE DONE
 
 suum <- subset(dataset, select = c(Root,suum)) # create temporary dataset with one theme and list of roots
@@ -214,7 +264,11 @@ df_prop <- data.frame(suum=suum$prop_suum, tuunich=tuunich$prop_tuunich,
                       poomo=poomo$prop_poomo, maaskab=maaskab$prop_maaskab,
                       hun=hun$prop_hun, arena=arena$prop_arena)
 rootnames <- suum$Root
+
+# Visualize first 6 rows of the new dataframe with the proportions of acceptability per root
+head(df_prop)
 ```
+
 
 # Multidimensional Scaling Analysis
 
@@ -274,7 +328,7 @@ solution <- data.frame("Dimension.1"=fit$points[,1],
                        "Root" = rootnames)
 ```
 
-Now we can plot the dimensions against each other to have a representation of the datapoints (dispositional roots) in two-dimensional space. Below are plots for each dimension against dimension 1 for convenience and to have a unified criteria for comparison. The distance between any two roots shows the degree to which they are simmilar, i.e., dispositional roots that are closed are more similar than roots that are further apart. 
+Now we can plot the dimensions against each other to have a representation of the datapoints (dispositional roots) in two-dimensional space. Below are plots for each dimension against dimension 1 for convenience and to have a unified criteria for comparison. The distance between any two roots shows the degree to which they are simmilar, i.e., dispositional roots that are close are more similar than roots that are further apart. 
 
 ```{r}
 # MDS plots
@@ -285,7 +339,6 @@ Now we can plot the dimensions against each other to have a representation of th
 
 ggplot(data=solution, aes(x=Dimension.1, y=Dimension.2, label=Root)) +
   geom_text() +
-  #geom_text_repel() +
   theme_bw() +
   xlab(paste("Dim1 - ", var[1], "%", sep="")) +
   ylab(paste("Dim2 - ", var[2], "%", sep="")) +
@@ -297,7 +350,6 @@ ggplot(data=solution, aes(x=Dimension.1, y=Dimension.2, label=Root)) +
 
 ggplot(data=solution, aes(x=Dimension.2, y=Dimension.1, label=Root)) +
   geom_text() +
-  #geom_text_repel() +
   theme_bw() +
   xlab(paste("Dim2 - ", var[2], "%", sep="")) +
   ylab(paste("Dim1 - ", var[1], "%", sep="")) +
@@ -309,7 +361,6 @@ ggplot(data=solution, aes(x=Dimension.2, y=Dimension.1, label=Root)) +
 
 ggplot(data=solution, aes(x=Dimension.3, y=Dimension.1, label=Root)) +
   geom_text() +
-  #geom_text_repel() +
   theme_bw() +
   xlab(paste("Dim3 - ", var[3], "%", sep="")) +
   ylab(paste("Dim1 - ", var[1], "%", sep="")) +
@@ -321,7 +372,6 @@ ggplot(data=solution, aes(x=Dimension.3, y=Dimension.1, label=Root)) +
 
 ggplot(data=solution, aes(x=Dimension.4, y=Dimension.1, label=Root)) +
   geom_text() +
-  #geom_text_repel() +
   theme_bw() +
   xlab(paste("Dim4 - ", var[4], "%", sep="")) +
   ylab(paste("Dim1 - ", var[1], "%", sep="")) +
@@ -333,7 +383,6 @@ ggplot(data=solution, aes(x=Dimension.4, y=Dimension.1, label=Root)) +
 
 ggplot(data=solution, aes(x=Dimension.5, y=Dimension.1, label=Root)) +
   geom_text() +
-  #geom_text_repel() +
   theme_bw() +
   xlab(paste("Dim5 - ", var[5], "%", sep="")) +
   ylab(paste("Dim1 - ", var[1], "%", sep="")) +
@@ -345,7 +394,6 @@ ggplot(data=solution, aes(x=Dimension.5, y=Dimension.1, label=Root)) +
 
 ggplot(data=solution, aes(x=Dimension.6, y=Dimension.1, label=Root)) +
   geom_text() +
-  #geom_text_repel() +
   theme_bw() +
   xlab(paste("Dim6 - ", var[6], "%", sep="")) +
   ylab(paste("Dim1 - ", var[1], "%", sep="")) +
@@ -364,8 +412,10 @@ ggplot(data=solution, aes(x=Dimension.7, y=Dimension.1, label=Root)) +
   ggtitle("MDS plot")
 ```
 
+Here is another, and interactive, version of the MDS plots. By hovering the cursor over the roots, the gloss corresponding to that particular root can be read.
 
-```{r, echo=FALSE,include=FALSE}
+```{r}
+#{r, echo=FALSE,include=FALSE} # TO BE CHECKED
 # MDS plots with interactive labels
 
 # Import and prepare glosses for interactive labels
@@ -387,7 +437,6 @@ plt <- mutate(plt, Root = solution$Root)
 
 onetwo <- ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
   geom_text() +
-  #geom_text_repel() +
   theme_bw() +
   xlab(paste("Dim1 - ", var[1], "%", sep="")) +
   ylab(paste("Dim2 - ", var[2], "%", sep="")) +
@@ -444,7 +493,7 @@ onethree <- ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
   ylab(paste("Dim3 - ", var[3], "%", sep="")) +
   ggtitle("MDS plot")
 
-onethreegg <- onethree + geom_point_interactive(aes(tooltip = roots_glosses$rg), size = 2)
+onethreegg <- onethree + geom_text_interactive(aes(tooltip = roots_glosses$rg), size = 2)
 ggiraph(code = print(onethreegg))
 onethreegg
 ```
@@ -492,7 +541,7 @@ levels(semdim$Contact)[levels(semdim$Contact)=='0?'] <- NA
 summary(semdim)
 ```
 
-Because the dispositional roots in Tilbe's dataset are not eactly the same in the one used in this analysis (Tilbe's dataset has 121 roots and the one used in this analysis has 132), we have to make a subgroup of those roots that are used in both datasets to be able to correlate them. This is done below:
+Because the dispositional roots in Tilbe's dataset are not exactly the same in the one used in this analysis (Tilbe's dataset has 121 roots and the one used in this analysis has 132), we have to make a subgroup of those roots that are used in both datasets to be able to correlate them. This is done below:
 
 ```{r}
 # Keep only those rows that have roots in common (between semantic dimensions and mds dimensions dataframes)
@@ -660,7 +709,6 @@ boxplot(both$Dimension.2 ~ both$Contact, ylab = "Dim 2", xlab = "Contact")
 ```{r, echo=FALSE}
 # T-test for correlation 
 t.test(both$Dimension.2~both$Suspension)
-
 t.test(both$Dimension.2~both$Potential.energy)
 ```
 
@@ -740,10 +788,10 @@ boxplot(both$Dimension.3 ~ both$Contact, ylab = "Dim 3", xlab = "Contact")
 t.test(both$Dimension.3~both$Animate)
 t.test(both$Dimension.3~both$Orientation.in.vertical)
 t.test(both$Dimension.3~both$Inanimate)
-
 t.test(both$Dimension.3~both$Material.properties.specified)
-```
 
+#wilcox.test(both$Dimension.3~both$Material.properties.specified)
+```
 
 ```{r,echo=FALSE}
 # Boxplots Dim4 ~ .Semantic variables
@@ -1041,12 +1089,14 @@ boxplot(both$Dimension.7 ~ both$Contact, ylab = "Dim 7", xlab = "Contact")
 t.test(both$Dimension.7~both$Orientation.in.vertical)
 t.test(both$Dimension.7~both$Configuration.wrt.Ground)
 t.test(both$Dimension.7~both$Contact)
+t.test(both$Dimension.7~both$Configuration.of.parts)
 ```
+
 # Some preliminary conclusions
 
 ## Model comparison
 
-The table below shows a comparison of the variance accounted for by the first three dimensions of the different MDS models tested. W/NA vs No NA makes reference to the way the proportion of speakers that found a pair of root+theme acceptable was calculated (recall the example above, where 1,1,NA,1,1,1 would give 0.83 for W/NA and 1 for No NA). All themes vs Selected themes makes reference to the number of theme/figures that were included in the analysis. For the selected themes models, the themes used where the most tested ones, as shown in the heatmap above. The table shows that the current analysis (a model with No NA, Selected themes), is the one that accounts for more variance in the data.
+The table below shows a comparison of the variance accounted for by the first three dimensions of the different MDS models tested. W/NA vs No NA makes reference to the way the proportion of speakers that found a pair of root+theme acceptable was calculated (recall the example above, where 1,1,NA,1,1,1 would give 0.83 for W/NA and 1 for No NA). All themes vs Selected themes makes reference to the number of theme/figures that were included in the analysis. For the selected themes models, the themes used were the most tested ones, as shown in the heatmap above. The table shows that the current analysis (a model with No NA, Selected themes), is the one that accounts for more variance in the data.
 
 Dimension | W/NA, All themes | W/NA, Selected themes   | No NA, All themes  | No NA, Selected themes
 ----      | -----            | -----                   | -----              | -----
@@ -1062,8 +1112,8 @@ The table below shows, for the current analysis, the MDS dimensions together wit
 Dimension | Variance | Semantic variable   | p-value    
 ----      | -----    | -----               | ----- 
 1         | 27.4%    | Animate             | p < 0.001 
+1         | 27.4%    | Mat.prop.spec       | p < 0.001
 1         | 27.4%    | Blockage.of.motion  | p < 0.01
-1         | 27.4%    | Mat.prop.spec       | p < 0.01
 1         | 27.4%    | Suspension          | p < 0.05
 2         | 23.4%    | Suspension          | p < 0.05
 2         | 23.4%    | Pot.energy          | p < 0.05
@@ -1085,12 +1135,17 @@ List of semantic variables that were found to be significant to this analysis: A
 
 List of semantic variables that were found NOT to be significant to this analysis: Support, Leaning, Containment, Length of vertical dimension, Numerosity.
 
+
+# Extra
+
+We can take the semantic variables that were found to be significant and do an MDS analysis.
+
 ```{r}
 head(semdimdf)
 new <- subset(semdimdf, select = c(Animate, Suspension, Blockage.of.motion, Material.properties.specified, Potential.energy, Inanimate, Orientation.in.vertical, Contact))
 newroot <- semdimdf$ROOT
 
-# Calculate distance matrix using Euclidean distance
+# Calculate distance matrix using binary distance (because the semantic variables are binary: 0/1)
 newdm <- dist(new, method="binary")
 
 # Fit MDS
@@ -1112,6 +1167,8 @@ newsolution <- data.frame("Dimension.1"=newfit$points[,1],
                        "Dimension.3"=newfit$points[,3],
                        "Root" = newroot)
 ```
+
+Below are the MDS plots. For each plot, there are two versions. The second version uses "jitter" to avoid overplotting and provide readability of labels.
 
 ```{r}
 # MDS plots

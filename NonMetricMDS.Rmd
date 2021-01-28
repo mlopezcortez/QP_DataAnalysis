@@ -1,0 +1,90 @@
+---
+  title: "QP: Data Analysis"
+output:
+  html_document:
+  author: "Magali Lopez Cortez"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+df_print: paged
+toc: yes
+pdf_document:
+  toc: yes
+---
+  
+```{r "setup", include=FALSE}
+#Set working directory, load required packages
+#library(RColorBrewer)
+library(rdist)
+library(ggrepel)
+library(ggiraph) 
+library(anchors) # for replace.values
+library(car)
+library(tidyverse)
+library(broom)
+library(superheat)
+require("knitr")
+```
+
+```{r}
+#Import dataset
+dataset <- read_csv("../QP_Data/disp_dataset.csv", col_types = cols(Root = col_factor(),
+                                                                    Participant = col_factor()))
+head(dataset)
+```
+
+```{r}
+# Calculate proportions of participants that found a certain configuration acceptable for a particular pair root+figure
+df <- aggregate(. ~ Root, dataset, sum)
+# df <- select(df, -Participant) # for some reason this line of code started giving an error so changed it for the one below
+rootnames <- df$Root
+df <- subset(df, select = -c(Participant, Root))
+
+# # Need to make this chunk of code more elegant:
+# df_prop <- mutate(df, suum = suum/6, 
+#                   tuunich = tuunich/6,
+#                   nook = nook/6,
+#                   che = che/6,
+#                   wiinik = wiinik/6,
+#                   peek = peek/6,
+#                   kaan = kaan/6,
+#                   taablaklaabos = taablaklaabos/6,
+#                   nalhek = nalhek/6,
+#                   xim = xim/6,
+#                   kamyoon = kamyoon/6,
+#                   ha = ha/6,
+#                   plastilina = plastilina/6,
+#                   luuch = luuch/6,
+#                   poomo = poomo/6,
+#                   maaskab = maaskab/6,
+#                   hun = hun/6,
+#                   arena = arena/6)
+
+# Here
+df_prop <- vector("double", ncol(df))  
+for (i in seq_along(df)) {
+  df_prop[[i]] <- df[i]/6
+}
+df_prop <- data.frame(df_prop)
+df_prop
+```
+
+```{r}
+# Calculate distance matrix using Euclidean distance
+# dm <- rdist(subset(df_prop, select = -c(Root)), metric="euclidean")
+dm <- rdist(subset(df_prop, metric="euclidean"))
+
+# Fit Non-metric MDS
+fit_NM <- isoMDS(dm, k = 3)   # gives error forroots that have 0 distance                
+
+# Calculate the percentage of variation that each MDS axis accounts for
+#var <- round(fit$eig/sum(fit$eig)*100, 1)
+
+# Scree plot
+#plot(fit$eig/sum(fit$eig), xlab="Dimensions", ylab="Proportion of variance")
+
+# Create data frame with solution
+solution <- data.frame("Dimension.1"=fit_NM$points[,1],
+                       "Dimension.2"=fit_NM$points[,2],
+                       "Dimension.3"=fit_NM$points[,3],
+                       "Root" = rootnames)
+
+```

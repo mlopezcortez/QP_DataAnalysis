@@ -126,6 +126,16 @@ The following chunk of code below deals with this. The first six rows of the new
 # Calculate the proportion of speakers that found each root+theme pair acceptable
 # This chunk of code can be improved to avoid repetition of the same code for each theme/figure - TO BE DONE
 
+
+prop <- function(df,theme){
+  theme <- subset(df, select = c(Root,theme)) # create temporary dataset with one theme and list of roots
+  theme <- na.omit(theme) # delete rows with NA
+  count_theme <- theme %>% dplyr::count(Root) # count repetitions of roots (it will be 6 when there is no NA, less if there were NAs that got deleted)
+  theme <- aggregate(. ~ Root, theme, sum) # sum over column of theme for each root
+  theme <- mutate(theme,count=count_theme$n) # add count of roots to this dataset
+  theme <- mutate(theme,prop_theme=theme/count) # create column for proportion = sum of theme / count of root
+}
+
 suum <- subset(dataset, select = c(Root,suum)) # create temporary dataset with one theme and list of roots
 suum <- na.omit(suum) # delete rows with NA
 count_suum <- suum %>% dplyr::count(Root) # count repetitions of roots (it will be 6 when there is no NA, less if there were NAs that got deleted)

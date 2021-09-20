@@ -1,0 +1,385 @@
+---
+title: "QP: Data Analysis"
+output:
+  html_document:
+    author: "Magali Lopez Cortez"
+    date: "`r format(Sys.time(), '%d %B, %Y')`"
+    df_print: paged
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+This notebook contains MDS and hierarchical clustering performed for selected themes (see QP_DataAnalysis for the criteria used to subset dataset) and *all roots* (as opposed to the analysis done in QP_DataAnalysis for a subset of 40 roots).
+
+```{r "setup", include=FALSE}
+#Load required packages
+library(rdist)
+library(tidyverse)
+library(broom)
+library(RColorBrewer)
+library(superheat)
+library(dendextend)
+require("knitr")
+```
+
+# Dataset
+
+Below are the first six rows of the dataset. Rows show Dispositional root + Speaker combination, and columns show themes/figures tested. Speakers were asked to provide a configuration for a given root+theme combination; if they provided it, the cells show a 1. If they said the combination was not possible, the cells show a 0. However, not all possible pairs of root+theme were tested, because of previous knowledge that that combination was not possible. Those cases are also coded with 0. Cases in which a participant was not asked an expected combination are coded NA. Marginal cases, that is, those in which participants were doubtful or showed that the root could be applied to only part of the figure tested, are coded 0.5. 
+
+```{r}
+#Import dataset
+dataset <- read_csv("../QP_Data/disp_dataset.csv", col_types = cols(Root = col_factor(),
+                                                                    Participant = col_factor()))
+head(dataset)
+```
+
+```{r, include=FALSE}
+# Calculate the proportion of speakers that found each root+theme pair acceptable
+# This chunk of code can be improved to avoid repetition of the same code for each theme/figure - TO BE DONE
+
+suum <- subset(dataset, select = c(Root,suum)) # create temporary dataset with one theme and list of roots
+suum <- na.omit(suum) # delete rows with NA
+count_suum <- suum %>% dplyr::count(Root) # count repetitions of roots (it will be 6 when there is no NA, less if there were NAs that got deleted)
+suum <- aggregate(. ~ Root, suum, sum) # sum over column of theme for each root
+suum <- mutate(suum,count=count_suum$n) # add count of roots to this dataset
+suum <- mutate(suum,prop_suum=suum/count) # create column for proportion = sum of theme / count of root
+
+tuunich <- subset(dataset, select = c(Root,tuunich))
+tuunich <- na.omit(tuunich)
+count_tuunich <- tuunich %>% dplyr::count(Root)
+tuunich <- aggregate(. ~ Root, tuunich, sum)
+tuunich <- mutate(tuunich,count=count_tuunich$n)
+tuunich <- mutate(tuunich,prop_tuunich=tuunich/count)
+
+nook <- subset(dataset, select = c(Root,nook))
+nook <- na.omit(nook)
+count_nook <- nook %>% dplyr::count(Root)
+nook <- aggregate(. ~ Root, nook, sum)
+nook <- mutate(nook,count=count_nook$n)
+nook <- mutate(nook,prop_nook=nook/count)
+
+che <- subset(dataset, select = c(Root,che))
+che <- na.omit(che)
+count_che <- che %>% dplyr::count(Root)
+che <- aggregate(. ~ Root, che, sum)
+che <- mutate(che,count=count_che$n)
+che <- mutate(che,prop_che=che/count)
+
+wiinik <- subset(dataset, select = c(Root,wiinik))
+wiinik <- na.omit(wiinik)
+count_wiinik <- wiinik %>% dplyr::count(Root)
+wiinik <- aggregate(. ~ Root, wiinik, sum)
+wiinik <- mutate(wiinik,count=count_wiinik$n)
+wiinik <- mutate(wiinik,prop_wiinik=wiinik/count)
+
+peek <- subset(dataset, select = c(Root,peek))
+peek <- na.omit(peek)
+count_peek <- peek %>% dplyr::count(Root)
+peek <- aggregate(. ~ Root, peek, sum)
+peek <- mutate(peek,count=count_peek$n)
+peek <- mutate(peek,prop_peek=peek/count)
+
+kaan <- subset(dataset, select = c(Root,kaan))
+kaan <- na.omit(kaan)
+count_kaan <- kaan %>% dplyr::count(Root)
+kaan <- aggregate(. ~ Root, kaan, sum)
+kaan <- mutate(kaan,count=count_kaan$n)
+kaan <- mutate(kaan,prop_kaan=kaan/count)
+
+taablaklaabos <- subset(dataset, select = c(Root,taablaklaabos))
+taablaklaabos <- na.omit(taablaklaabos)
+count_taablaklaabos <- taablaklaabos %>% dplyr::count(Root)
+taablaklaabos <- aggregate(. ~ Root, taablaklaabos, sum)
+taablaklaabos <- mutate(taablaklaabos,count=count_taablaklaabos$n)
+taablaklaabos <- mutate(taablaklaabos,prop_taablaklaabos=taablaklaabos/count)
+
+nalhek <- subset(dataset, select = c(Root,nalhek))
+nalhek <- na.omit(nalhek)
+count_nalhek <- nalhek %>% dplyr::count(Root)
+nalhek <- aggregate(. ~ Root, nalhek, sum)
+nalhek <- mutate(nalhek,count=count_nalhek$n)
+nalhek <- mutate(nalhek,prop_nalhek=nalhek/count)
+
+xim <- subset(dataset, select = c(Root,xim))
+xim <- na.omit(xim)
+count_xim <- xim %>% dplyr::count(Root)
+xim <- aggregate(. ~ Root, xim, sum)
+xim <- mutate(xim,count=count_xim$n)
+xim <- mutate(xim,prop_xim=xim/count)
+
+kamyoon <- subset(dataset, select = c(Root,kamyoon))
+kamyoon <- na.omit(kamyoon)
+count_kamyoon <- kamyoon %>% dplyr::count(Root)
+kamyoon <- aggregate(. ~ Root, kamyoon, sum)
+kamyoon <- mutate(kamyoon,count=count_kamyoon$n)
+kamyoon <- mutate(kamyoon,prop_kamyoon=kamyoon/count)
+
+ha <- subset(dataset, select = c(Root,ha))
+ha <- na.omit(ha)
+count_ha <- ha %>% dplyr::count(Root)
+ha <- aggregate(. ~ Root, ha, sum)
+ha <- mutate(ha,count=count_ha$n)
+ha <- mutate(ha,prop_ha=ha/count)
+
+plastilina <- subset(dataset, select = c(Root,plastilina))
+plastilina <- na.omit(plastilina)
+count_plastilina <- plastilina %>% dplyr::count(Root)
+plastilina <- aggregate(. ~ Root, plastilina, sum)
+plastilina <- mutate(plastilina,count=count_plastilina$n)
+plastilina <- mutate(plastilina,prop_plastilina=plastilina/count)
+
+luuch <- subset(dataset, select = c(Root,luuch))
+luuch <- na.omit(luuch)
+count_luuch <- luuch %>% dplyr::count(Root)
+luuch <- aggregate(. ~ Root, luuch, sum)
+luuch <- mutate(luuch,count=count_luuch$n)
+luuch <- mutate(luuch,prop_luuch=luuch/count)
+
+poomo <- subset(dataset, select = c(Root,poomo))
+poomo <- na.omit(poomo)
+count_poomo <- poomo %>% dplyr::count(Root)
+poomo <- aggregate(. ~ Root, poomo, sum)
+poomo <- mutate(poomo,count=count_poomo$n)
+poomo <- mutate(poomo,prop_poomo=poomo/count)
+
+maaskab <- subset(dataset, select = c(Root,maaskab))
+maaskab <- na.omit(maaskab)
+count_maaskab <- maaskab %>% dplyr::count(Root)
+maaskab <- aggregate(. ~ Root, maaskab, sum)
+maaskab <- mutate(maaskab,count=count_maaskab$n)
+maaskab <- mutate(maaskab,prop_maaskab=maaskab/count)
+
+hun <- subset(dataset, select = c(Root,hun))
+hun <- na.omit(hun)
+count_hun <- hun %>% dplyr::count(Root)
+hun <- aggregate(. ~ Root, hun, sum)
+hun <- mutate(hun,count=count_hun$n)
+hun <- mutate(hun,prop_hun=hun/count)
+
+arena <- subset(dataset, select = c(Root,arena))
+arena <- na.omit(arena)
+count_arena <- arena %>% dplyr::count(Root)
+arena <- aggregate(. ~ Root, arena, sum)
+arena <- mutate(arena,count=count_arena$n)
+arena <- mutate(arena,prop_arena=arena/count)
+
+
+# Join all columns with proportions into one dataset
+df_prop <- data.frame(suum=suum$prop_suum, tuunich=tuunich$prop_tuunich, 
+                      nook=nook$prop_nook, che=che$prop_che,
+                      wiinik=wiinik$prop_wiinik, peek=peek$prop_peek,
+                      kaan=kaan$prop_kaan, taablaklaabos=taablaklaabos$prop_taablaklaabos,
+                      nalhek=nalhek$prop_nalhek, xim=xim$prop_xim,
+                      kamyoon=kamyoon$prop_kamyoon, ha=ha$prop_ha,
+                      plastilina=plastilina$prop_plastilina, luuch=luuch$prop_luuch,
+                      poomo=poomo$prop_poomo, maaskab=maaskab$prop_maaskab,
+                      hun=hun$prop_hun, arena=arena$prop_arena)
+rootnames <- suum$Root
+
+# Visualize first 6 rows of the new dataframe with the proportions of acceptability per root
+head(df_prop)
+```
+
+# Multidimensional Scaling Analysis
+
+```{r}
+# Select figs/themes with less 0s
+rootsTested <- 99 # (75% of 132) 
+sub_allroots <- df_prop[,colSums(df_prop == 0) <= rootsTested]
+
+# Select roots with less 0s
+#sub <- mutate(sub_allroots, 'Root' = rootnames)
+#rootnames <- sub$Root
+#sub <- subset(sub, select = -c(Root)) 
+#sub
+
+# Calculate distance matrix using Euclidean distance
+dm <- rdist(sub_allroots, metric="euclidean")
+
+# Fit MDS
+fit <- cmdscale(dm, eig=TRUE, x.ret=TRUE, k = 6)                       
+
+# Calculate the percentage of variation that each MDS axis accounts for
+var <- round(fit$eig/sum(fit$eig)*100, 1)
+
+# Make a scree plot to show proportion of variance accounted for by each dimension
+#jpeg("Figures/ScreePlotAllRoots.jpeg") #, res = 300, w = 2000, h = 1500
+plot(fit$eig/sum(fit$eig), xlab="Dimensions", ylab="Proportion of variance")
+#dev.off()
+
+# Make a table to show proportion of variance accounted for by each dimension
+var_table <- data.frame("Dimension"=c(1:6),"Variance"=var[1:6])
+var_table
+
+# Create data frame with solution
+solution2 <- data.frame("Root" = rootnames,
+                       "Dimension.1"=fit$points[,1],
+                       "Dimension.2"=fit$points[,2],
+                       "Dimension.3"=fit$points[,3],
+                       "Dimension.4"=fit$points[,4],
+                       "Dimension.5"=fit$points[,5],
+                       "Dimension.6"=fit$points[,6])
+```
+
+# Hierarchical Clustering Analysis
+
+```{r}
+# Hierarchical clustering
+library(usedist)
+# Add labbels to dist matrix
+dm <- dist_setNames(dm, rootnames)
+
+# Create solution for clustering
+clustering_solution <- hclust(dm, method="average")
+plot(clustering_solution, cex=0.7)
+
+```
+
+```{r}
+# Calculate silhouette widths (adapted from Levshina 2020)
+library(cluster)
+silwidths <- c()
+for (i in 2:30){
+silwidths <- c(silwidths, summary(silhouette(x = cutree(clustering_solution, k = i), dist = dm))$avg.width)
+}
+#jpeg("Figures/AvgSilWidths.jpeg")
+plot(x = 2:30, silwidths, type = "b", xlab = "Number of clusters", ylab = "Average silhouette width")
+#dev.off()
+```
+
+```{r}
+colourCount = 21
+getPalette = colorRampPalette(brewer.pal(12, "Paired"))
+
+d <- as.dendrogram(clustering_solution,hang = 0.1)
+#jpeg("Figures/ClustAllRoots.jpeg")
+d %>% set("labels_col", getPalette(colourCount), k=21) %>% set("labels_cex", c(0.7)) %>% plot()
+#dev.off()
+
+#Get the labels based on the top 21 splits
+ClusterLabel <- cutree(clustering_solution, k=21)
+clust_labels_df <- data.frame(ClusterLabel) %>% rownames_to_column("Root")
+#,row.names = rootnames
+# Sort by Cluster label in increasing order
+sort_clust_labels_df <- clust_labels_df[order(clust_labels_df$ClusterLabel), ]
+sort_clust_labels_df
+#write.csv(sort_clust_labels_df, file="Outputs/clustering_labels_AllRoots.csv", row.names=FALSE)
+```
+
+```{r}
+# MDS plots
+solution2 = mutate(solution2, 'ClusterLabel' = factor(clust_labels_df$ClusterLabel))
+###############
+# Dims 1 + 2
+###############
+#check_overlap = TRUE
+#jpeg("Figures/MDSDims1-2AllRoots.jpeg")
+plot1 <- ggplot(data=solution2, aes(x=Dimension.1, y=Dimension.2, label=Root)) +
+  geom_text(position=position_jitter(width=0.15,height=0.15), size=3, aes(colour = ClusterLabel)) + 
+  scale_fill_manual(values = getPalette(colourCount)) + #+ scale_color_brewer(palette="Paired") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 1 - ", var[1], "%", sep="")) +
+  ylab(paste("Dim 2 - ", var[2], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5) 
+  #ggtitle("MDS plot")
+#dev.off()
+
+###############
+# Dims 2 + 1
+###############
+#jpeg("Figures/MDSDims2-1AllRoots.jpeg")
+plot2 <- ggplot(data=solution2, aes(x=Dimension.2, y=Dimension.1, label=Root))+
+  geom_text(position=position_jitter(width=0.15,height=0.15),size=3, aes(colour = ClusterLabel)) +
+  scale_fill_manual(values = getPalette(colourCount)) + #+ scale_color_brewer(palette="Paired") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 2 - ", var[2], "%", sep="")) +
+  ylab(paste("Dim 1 - ", var[1], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5)  
+  #ggtitle("MDS plot")
+#dev.off()
+
+###############
+# Dims 3 + 1
+###############
+#jpeg("Figures/MDSDims3-1AllRoots.jpeg")
+plot3 <- ggplot(data=solution2, aes(x=Dimension.3, y=Dimension.1, label=Root)) +
+  geom_text(position=position_jitter(width=0.15,height=0.15),size=3, aes(colour = ClusterLabel)) +
+  scale_fill_manual(values = getPalette(colourCount)) + #+ scale_color_brewer(palette="Paired") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 3 - ", var[3], "%", sep="")) +
+  ylab(paste("Dim 1 - ", var[1], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5)   
+  #ggtitle("MDS plot")
+#dev.off()
+
+###############
+# Dims 4 + 1
+###############
+#jpeg("Figures/MDSDims4-1AllRoots.jpeg")
+plot4 <- ggplot(data=solution2, aes(x=Dimension.4, y=Dimension.1, label=Root)) +
+  geom_text(position=position_jitter(width=0.15,height=0.15),size=3, aes(colour = ClusterLabel)) +
+  scale_fill_manual(values = getPalette(colourCount)) + #+ scale_color_brewer(palette="Paired") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 4 - ", var[4], "%", sep="")) +
+  ylab(paste("Dim 1 - ", var[1], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5)  
+  #ggtitle("MDS plot")
+#dev.off()
+
+###############
+# Dims 5 + 1
+###############
+#jpeg("Figures/MDSDims5-1AllRoots.jpeg")
+plot5 <- ggplot(data=solution2, aes(x=Dimension.5, y=Dimension.1, label=Root)) +
+  geom_text(position=position_jitter(width=0.15,height=0.15),size=3, aes(colour = ClusterLabel)) +
+  scale_fill_manual(values = getPalette(colourCount)) + #+ scale_color_brewer(palette="Paired") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 5 - ", var[5], "%", sep="")) +
+  ylab(paste("Dim 1 - ", var[1], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5)  
+  #ggtitle("MDS plot")
+#dev.off()
+
+###############
+# Dims 6 + 1
+###############
+#jpeg("Figures/MDSDims6-1AllRoots.jpeg")
+plot6 <- ggplot(data=solution2, aes(x=Dimension.6, y=Dimension.1, label=Root)) +
+  geom_text(position=position_jitter(width=0.15,height=0.15),size=3, aes(colour = ClusterLabel)) +
+  scale_fill_manual(values = getPalette(colourCount)) + #+ scale_color_brewer(palette="Paired") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 6 - ", var[6], "%", sep="")) +
+  ylab(paste("Dim 1 - ", var[1], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5)  
+  #ggtitle("MDS plot")
+#dev.off()
+#library(gridExtra)
+#jpeg("Figures/MDSPlotsColor.jpeg", width = 1180, height = 1180,res=100)
+#grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6)
+#dev.off()
+plot1
+plot2
+plot3
+plot4
+plot5
+plot6
+```

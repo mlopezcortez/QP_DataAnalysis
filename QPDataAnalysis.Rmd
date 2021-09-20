@@ -11,33 +11,69 @@ output:
 ---
 
 ```{r "setup", include=FALSE}
-#Set working directory, load required packages
-#library(RColorBrewer)
+#Load required packages
 library(rdist)
-library(ggrepel)
-library(ggiraph) 
-library(anchors) # for replace.values
-library(car)
 library(tidyverse)
 library(broom)
+library(RColorBrewer)
 library(superheat)
+library(dendextend)
 require("knitr")
 ```
+
+# Dataset
+
+Below are the first six rows of the dataset. Rows show Dispositional root + Speaker combination, and columns show themes/figures tested. Speakers were asked to provide a configuration for a given root+theme combination; if they provided it, the cells show a 1. If they said the combination was not possible, the cells show a 0. However, not all possible pairs of root+theme were tested, because of previous knowledge that that combination was not possible. Those cases are also coded with 0. Cases in which a participant was not asked an expected combination are coded NA. Marginal cases, that is, those in which participants were doubtful or showed that the root could be applied to only part of the figure tested, are coded 0.5. 
 
 ```{r}
 #Import dataset
 dataset <- read_csv("../QP_Data/disp_dataset.csv", col_types = cols(Root = col_factor(),
                                                                     Participant = col_factor()))
-head(dataset)
+summary(dataset)
 ```
 
-```{r}
+The heatmap below shows cells coded with 0 in blue, 1 in yellow, 0.5 in green and NAs in white. The pervasiveness of blue in certain themes shows the themes that were tested the least. 
+
+```{r,warning=FALSE}
 # Heatmap to visualize figs/themes with many 0s
 figs <- subset(dataset, select = -c(Root,Participant))
+#jpeg("Figures/Heatmap.jpeg") 
 superheat(figs, heat.na.col = "white", n.clusters.cols = 8, clustering.method = 'hierarchical', bottom.label = "variable", bottom.label.text.size = 2, bottom.label.text.angle = 90)
+#dev.off()
 ```
 
-For each root+figure/theme pair, the idea is to find the proportion of speakers that found that pair acceptable. In this first trial, what I did was sum over each participant response for a given root+theme pair and divide that for the total number of participants. We might want to revisit this. Here's an example:
+Below is the number of 0s for each theme/figure tested. This will be useful later in the code. I start by taking into account all themes for the analysis, and then will compare the model to another one which discards themes with many 0s.
+
+```{r,include=FALSE}
+# Create table with number of 0s, 1s, 0.5s and NAs per figure/theme - TO BE DONE
+figs <- lapply(figs, as.factor)
+summary <- data.frame(summary(figs$suum))
+
+# Calculate percentage of 0s per theme/figure - TO BE DONE
+# suum: (624/792) = 0.79
+# tuunich: (679/792) = 0.86
+# nook: (630/792) = 0.8 
+# che: (478/792) = 0.6 
+# wiinik: (475/792) = 0.6
+# peek: (512/792) = 0.65
+# kaan: (600/792) = 0.76
+# kamyoon: (689/792) = 0.87
+# taablaklaabos: (746/792) = 0.94
+# nalhek: (752/792) = 0.95
+# xim: (745/792) = 0.94
+# ha: (766/792) = 0.97 
+# plastilina: (745/792) = 0.94
+# luuch: (758/792) = 0.96
+# poomo: (758/792) = 0.96
+# maaskab: (762/792) = 0.96
+# hun: (716/792) = 0.91
+# arena: (775/792) = 0.97
+
+```
+
+
+For each root+figure/theme pair, the idea is to find the proportion of speakers that found that pair acceptable. In a previous analysis, I summed over each participant response for a given root+theme pair and divided that for the total number of participants. 
+In this second analysis, I summed over each participant response for a given root+theme pair and divided that for the number of participants EXCLUDING NAs. Here's an example:
 
 Root      | Participant     | ha
 ----      | -----           | ----- 
@@ -48,7 +84,8 @@ ak        | RMC             | 1
 ak        | SBM             | 1
 ak        | SME             | 1
 
-This gives 5/6 = 0.83 acceptability for the ak+ha pair , so we're taking NAs as 0. 
+In the previous code, this gave 5/6 = 0.83 acceptability for the ak+ha pair.
+In the current code, this gives 5/5 = 1 acceptability for the ak+ha pair, so we're omitting NAs. This analysis improved the variance accounted by the model by around 1.5%.
 
 In cases where speakers identified a root applicable to part of the figure (e.g. part of the body), I assigned that 0.5 (same with cases where speakers expressed doubt)
 
@@ -63,353 +100,460 @@ boch'     | SME             | 0.5
 
 So 2/6 = 0.3 acceptability for the boch'+kamyoon pair.
 
-```{r}
-# Calculate proportions of participants that found a certain configuration acceptable for a particular pair root+figure
-df <- aggregate(. ~ Root, dataset, sum)
-# df <- select(df, -Participant) # for some reason this line of code started giving an error so changed it for the one below
-rootnames <- df$Root
-df <- subset(df, select = -c(Participant, Root))
+The following chunk of code below deals with this. The first six rows of the new dataframe with the proportions of acceptability per root are printed after the code. Note that the list of roots is excluded from this dataframe but saved in a new vector named "rootnames". This is to be able to perform the MDS analysis. The rootnames will be attached again later in the code. 
+
+```{r, include=FALSE}
+# Calculate the proportion of speakers that found each root+theme pair acceptable
+# This chunk of code can be improved to avoid repetition of the same code for each theme/figure - TO BE DONE
+
+suum <- subset(dataset, select = c(Root,suum)) # create temporary dataset with one theme and list of roots
+suum <- na.omit(suum) # delete rows with NA
+count_suum <- suum %>% dplyr::count(Root) # count repetitions of roots (it will be 6 when there is no NA, less if there were NAs that got deleted)
+suum <- aggregate(. ~ Root, suum, sum) # sum over column of theme for each root
+suum <- mutate(suum,count=count_suum$n) # add count of roots to this dataset
+suum <- mutate(suum,prop_suum=suum/count) # create column for proportion = sum of theme / count of root
+
+tuunich <- subset(dataset, select = c(Root,tuunich))
+tuunich <- na.omit(tuunich)
+count_tuunich <- tuunich %>% dplyr::count(Root)
+tuunich <- aggregate(. ~ Root, tuunich, sum)
+tuunich <- mutate(tuunich,count=count_tuunich$n)
+tuunich <- mutate(tuunich,prop_tuunich=tuunich/count)
+
+nook <- subset(dataset, select = c(Root,nook))
+nook <- na.omit(nook)
+count_nook <- nook %>% dplyr::count(Root)
+nook <- aggregate(. ~ Root, nook, sum)
+nook <- mutate(nook,count=count_nook$n)
+nook <- mutate(nook,prop_nook=nook/count)
+
+che <- subset(dataset, select = c(Root,che))
+che <- na.omit(che)
+count_che <- che %>% dplyr::count(Root)
+che <- aggregate(. ~ Root, che, sum)
+che <- mutate(che,count=count_che$n)
+che <- mutate(che,prop_che=che/count)
+
+wiinik <- subset(dataset, select = c(Root,wiinik))
+wiinik <- na.omit(wiinik)
+count_wiinik <- wiinik %>% dplyr::count(Root)
+wiinik <- aggregate(. ~ Root, wiinik, sum)
+wiinik <- mutate(wiinik,count=count_wiinik$n)
+wiinik <- mutate(wiinik,prop_wiinik=wiinik/count)
+
+peek <- subset(dataset, select = c(Root,peek))
+peek <- na.omit(peek)
+count_peek <- peek %>% dplyr::count(Root)
+peek <- aggregate(. ~ Root, peek, sum)
+peek <- mutate(peek,count=count_peek$n)
+peek <- mutate(peek,prop_peek=peek/count)
+
+kaan <- subset(dataset, select = c(Root,kaan))
+kaan <- na.omit(kaan)
+count_kaan <- kaan %>% dplyr::count(Root)
+kaan <- aggregate(. ~ Root, kaan, sum)
+kaan <- mutate(kaan,count=count_kaan$n)
+kaan <- mutate(kaan,prop_kaan=kaan/count)
+
+taablaklaabos <- subset(dataset, select = c(Root,taablaklaabos))
+taablaklaabos <- na.omit(taablaklaabos)
+count_taablaklaabos <- taablaklaabos %>% dplyr::count(Root)
+taablaklaabos <- aggregate(. ~ Root, taablaklaabos, sum)
+taablaklaabos <- mutate(taablaklaabos,count=count_taablaklaabos$n)
+taablaklaabos <- mutate(taablaklaabos,prop_taablaklaabos=taablaklaabos/count)
+
+nalhek <- subset(dataset, select = c(Root,nalhek))
+nalhek <- na.omit(nalhek)
+count_nalhek <- nalhek %>% dplyr::count(Root)
+nalhek <- aggregate(. ~ Root, nalhek, sum)
+nalhek <- mutate(nalhek,count=count_nalhek$n)
+nalhek <- mutate(nalhek,prop_nalhek=nalhek/count)
+
+xim <- subset(dataset, select = c(Root,xim))
+xim <- na.omit(xim)
+count_xim <- xim %>% dplyr::count(Root)
+xim <- aggregate(. ~ Root, xim, sum)
+xim <- mutate(xim,count=count_xim$n)
+xim <- mutate(xim,prop_xim=xim/count)
+
+kamyoon <- subset(dataset, select = c(Root,kamyoon))
+kamyoon <- na.omit(kamyoon)
+count_kamyoon <- kamyoon %>% dplyr::count(Root)
+kamyoon <- aggregate(. ~ Root, kamyoon, sum)
+kamyoon <- mutate(kamyoon,count=count_kamyoon$n)
+kamyoon <- mutate(kamyoon,prop_kamyoon=kamyoon/count)
+
+ha <- subset(dataset, select = c(Root,ha))
+ha <- na.omit(ha)
+count_ha <- ha %>% dplyr::count(Root)
+ha <- aggregate(. ~ Root, ha, sum)
+ha <- mutate(ha,count=count_ha$n)
+ha <- mutate(ha,prop_ha=ha/count)
+
+plastilina <- subset(dataset, select = c(Root,plastilina))
+plastilina <- na.omit(plastilina)
+count_plastilina <- plastilina %>% dplyr::count(Root)
+plastilina <- aggregate(. ~ Root, plastilina, sum)
+plastilina <- mutate(plastilina,count=count_plastilina$n)
+plastilina <- mutate(plastilina,prop_plastilina=plastilina/count)
+
+luuch <- subset(dataset, select = c(Root,luuch))
+luuch <- na.omit(luuch)
+count_luuch <- luuch %>% dplyr::count(Root)
+luuch <- aggregate(. ~ Root, luuch, sum)
+luuch <- mutate(luuch,count=count_luuch$n)
+luuch <- mutate(luuch,prop_luuch=luuch/count)
+
+poomo <- subset(dataset, select = c(Root,poomo))
+poomo <- na.omit(poomo)
+count_poomo <- poomo %>% dplyr::count(Root)
+poomo <- aggregate(. ~ Root, poomo, sum)
+poomo <- mutate(poomo,count=count_poomo$n)
+poomo <- mutate(poomo,prop_poomo=poomo/count)
+
+maaskab <- subset(dataset, select = c(Root,maaskab))
+maaskab <- na.omit(maaskab)
+count_maaskab <- maaskab %>% dplyr::count(Root)
+maaskab <- aggregate(. ~ Root, maaskab, sum)
+maaskab <- mutate(maaskab,count=count_maaskab$n)
+maaskab <- mutate(maaskab,prop_maaskab=maaskab/count)
+
+hun <- subset(dataset, select = c(Root,hun))
+hun <- na.omit(hun)
+count_hun <- hun %>% dplyr::count(Root)
+hun <- aggregate(. ~ Root, hun, sum)
+hun <- mutate(hun,count=count_hun$n)
+hun <- mutate(hun,prop_hun=hun/count)
+
+arena <- subset(dataset, select = c(Root,arena))
+arena <- na.omit(arena)
+count_arena <- arena %>% dplyr::count(Root)
+arena <- aggregate(. ~ Root, arena, sum)
+arena <- mutate(arena,count=count_arena$n)
+arena <- mutate(arena,prop_arena=arena/count)
 
 
-
-# # Need to make this chunk of code more elegant:
-# df_prop <- mutate(df, suum = suum/6, 
-#                   tuunich = tuunich/6,
-#                   nook = nook/6,
-#                   che = che/6,
-#                   wiinik = wiinik/6,
-#                   peek = peek/6,
-#                   kaan = kaan/6,
-#                   taablaklaabos = taablaklaabos/6,
-#                   nalhek = nalhek/6,
-#                   xim = xim/6,
-#                   kamyoon = kamyoon/6,
-#                   ha = ha/6,
-#                   plastilina = plastilina/6,
-#                   luuch = luuch/6,
-#                   poomo = poomo/6,
-#                   maaskab = maaskab/6,
-#                   hun = hun/6,
-#                   arena = arena/6)
-
-# Here
-df_prop <- vector("double", ncol(df))  
-for (i in seq_along(df)) {
-  df_prop[[i]] <- df[i]/6
-}
-df_prop <- data.frame(df_prop)
-df_prop
+# Join all columns with proportions into one dataset
+df_prop <- data.frame(suum=suum$prop_suum, tuunich=tuunich$prop_tuunich, 
+                      nook=nook$prop_nook, che=che$prop_che,
+                      wiinik=wiinik$prop_wiinik, peek=peek$prop_peek,
+                      kaan=kaan$prop_kaan, taablaklaabos=taablaklaabos$prop_taablaklaabos,
+                      nalhek=nalhek$prop_nalhek, xim=xim$prop_xim,
+                      kamyoon=kamyoon$prop_kamyoon, ha=ha$prop_ha,
+                      plastilina=plastilina$prop_plastilina, luuch=luuch$prop_luuch,
+                      poomo=poomo$prop_poomo, maaskab=maaskab$prop_maaskab,
+                      hun=hun$prop_hun, arena=arena$prop_arena)
+rootnames <- suum$Root
+head(df_prop)
 ```
 
 
+```{r, include=FALSE}
+# Check number of 0s in each theme after proportions were calculated
 
-```{r}
+figs <- lapply(df_prop, as.factor)
+
+summary(figs$suum) #96
+summary(figs$tuunich) #109
+summary(figs$nook) #99
+summary(figs$che) #72
+summary(figs$wiinik) #72
+summary(figs$peek) #80
+summary(figs$kaan) #95
+summary(figs$taablaklaabos) #122
+summary(figs$nalhek) #125
+summary(figs$xim) #122
+summary(figs$kamyoon) #112
+summary(figs$ha) #127
+summary(figs$plastilina) #124
+summary(figs$luuch) #126
+summary(figs$poomo) #126
+summary(figs$maaskab) #126
+summary(figs$hun) #117
+summary(figs$arena) #129
+```
+
+
+# Multidimensional Scaling Analysis
+
+Once the proportion of speakers that consider each pair of root+theme acceptable is calculated, we can create a distance matrix that will be the input of the MDS model, and fit the model. This is done below:
+
+```{r,echo=FALSE}
 # Calculate distance matrix using Euclidean distance
-# dm <- rdist(subset(df_prop, select = -c(Root)), metric="euclidean")
-dm <- rdist(subset(df_prop, metric="euclidean"))
+dm <- rdist(df_prop, metric="euclidean")
 
 # Fit MDS
-fit <- cmdscale(dm, eig=TRUE, x.ret=TRUE, k = 3)                       
-
-# fit returns:
-# $points: a matrix with up to k columns whose rows give the coordinates of the points chosen to represent the dissimilarities
-# $eig: the n eigenvalues computed during the scaling process if eig is true.
-# $x: the doubly centered distance matrix if x.ret is true
-# $ac: the additive constant c∗, 0 if add = FALSE 
-## (When add = TRUE, a minimal additive constant c∗ is computed such that the dissimilarities dij+c∗ are Euclidean and hence can be represented in n - 1 dimensions)
-# GOF: https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/cmdscale
+fit <- cmdscale(dm, eig=TRUE, x.ret=TRUE)                       
 
 # Calculate the percentage of variation that each MDS axis accounts for
 var <- round(fit$eig/sum(fit$eig)*100, 1)
 
-# Scree plot
+# Make a table to show proportion of variance accounted for by each dimension
+var_table <- data.frame("Dimension"=c(1:7),"Variance"=var[1:7])
+var_table
+
+# Make a scree plot to show proportion of variance accounted for by each dimension
+#jpeg("Figures/ScreePlot_1.jpeg") 
 plot(fit$eig/sum(fit$eig), xlab="Dimensions", ylab="Proportion of variance")
+#dev.off()
+```
+
+The model above is based on a sparse dataset. Below is a model based on a smaller dataset. Themes were filtered based on the following criteria: keep themes that have 75% or less of 0s, iow, out of 132 roots, at least 33 were tested for that theme. The columns kept with their corresponding number of non-zero values (roots tested for those themes) are: suum (36), nook (33), che (60), wiinik (60), peek (52), kaan (37). Roots were then filtered based on the following criteria: keep those roots that were tested on at least 3 themes (out of 6). Based on this, 40 roots were kept. The scree plot for this new model shows that the variance is now distributed over 6 dimensions. Moreover, the first dimension now accounts for 43.3% of the variation, and the first 3 dimensions now account for the 78.9% of variation in the data. 
+
+```{r}
+# Select figs/themes with less 0s
+rootsTested <- 99 # (75% of 132) 
+sub <- df_prop[,colSums(df_prop == 0) <= rootsTested]
+
+# Select roots with less 0s
+sub <- mutate(sub, 'Root' = rootnames)
+themesTested <- 3 # 40 roots
+sub <- sub[rowSums(sub == 0) <= themesTested, ]
+rootnames_sub <- sub$Root
+sub <- subset(sub, select = -c(Root)) 
+
+# Check # of 0s in each theme
+figs <- lapply(sub, as.factor)
+summary(figs)
+
+summary(figs$suum) #13
+summary(figs$nook) #20
+summary(figs$che) #17
+summary(figs$wiinik) #19
+summary(figs$peek) #11
+summary(figs$kaan) #9
+
+# Calculate distance matrix using Euclidean distance
+dm <- rdist(sub, metric="euclidean")
+
+# Fit MDS
+fit <- cmdscale(dm, eig=TRUE, x.ret=TRUE, k = 6)                       
+
+# Calculate the percentage of variation that each MDS axis accounts for
+var <- round(fit$eig/sum(fit$eig)*100, 1)
+
+# Make a scree plot to show proportion of variance accounted for by each dimension
+#jpeg("Figures/ScreePlot_3.jpeg") #, res = 300, w = 2000, h = 1500
+plot(fit$eig/sum(fit$eig), xlab="Dimensions", ylab="Proportion of variance")
+#dev.off()
+
+# Make a table to show proportion of variance accounted for by each dimension
+var_table <- data.frame("Dimension"=c(1:6),"Variance"=var[1:6])
+var_table
 
 # Create data frame with solution
-solution <- data.frame("Dimension.1"=fit$points[,1],
+solution <- data.frame("Root" = rootnames_sub,
+                       "Dimension.1"=fit$points[,1],
                        "Dimension.2"=fit$points[,2],
                        "Dimension.3"=fit$points[,3],
-                       "Root" = rootnames)
-
+                       "Dimension.4"=fit$points[,4],
+                       "Dimension.5"=fit$points[,5],
+                       "Dimension.6"=fit$points[,6])
 ```
 
-```{r}
-temp <- subset(dataset, select = -c(Participant, Root))
-dims_themes <- cbind(solution,temp)
-head(dims_themes)  
-```
+Now we can plot the dimensions against each other to have a representation of the datapoints (dispositional roots) in two-dimensional space. Below are plots for each dimension against dimension 1 for convenience and to have a unified criteria for comparison. The distance between any two roots shows the degree to which they are simmilar, i.e., dispositional roots that are close are more similar than roots that are further apart. 
 
-```{r}
-# Plot one dimension
-ggplot(data=solution, aes(x=Dimension.1, y=c(0), label=Root)) + geom_text() + geom_text_repel()
-```
+NOTE: Run Hierarchical clustering analysis before running this chunk of code. This code was later modified to color code the roots based on the output of the clustering model.
 
-```{r}
-# Boxplots Dim1 ~ .Themes
-
-# Prepare canvas
-par(mfrow=c(3,6))
-
-# Check correlation between Dim1 and Animate
-boxplot(dims_themes$Dimension.1 ~dims_themes$suum, ylab = "Dim 1", xlab = "Suum")
-#summary(lm(Dimension.1 ~ Animate, data = both))
-
-# Check correlation between Dim1 and Support
-boxplot(dims_themes$Dimension.1 ~ dims_themes$tuunich, ylab = "Dim 1", xlab = "Tuunich")
-#summary(lm(formula = Dimension.1 ~ Support, data = both))
-
-# Check correlation between Dim1 and Leaning
-boxplot(dims_themes$Dimension.1 ~ dims_themes$nook, ylab = "Dim 1", xlab = "Nook")
-#summary(lm(formula = Dimension.1 ~ Leaning, data = both))
-
-# Check correlation between Dim1 and Suspension
-boxplot(dims_themes$Dimension.1 ~ dims_themes$che, ylab = "Dim 1", xlab = "Che")
-#summary(lm(formula = Dimension.1 ~ Suspension, data = both))
-
-# Check correlation between Dim1 and Blockage of motion
-boxplot(dims_themes$Dimension.1 ~ dims_themes$wiinik, ylab = "Dim 1", xlab = "Wiinik")
-#summary(lm(formula = Dimension.1 ~ Blockage.of.motion, data = both))
-
-# Check correlation between Dim1 and Orientation in vertical
-boxplot(dims_themes$Dimension.1 ~ dims_themes$peek, ylab = "Dim 1", xlab = "Peek")
-#summary(lm(formula = Dimension.1 ~ Orientation.in.vertical, data = both))
-
-# Check correlation between Dim1 and Dispersion
-boxplot(dims_themes$Dimension.1 ~ dims_themes$kaan, ylab = "Dim 1", xlab = "Kaan")
-#summary(lm(formula = Dimension.1 ~ Dispersion, data = both))
-
-# Check correlation between Dim1 and Configuartion of parts
-boxplot(dims_themes$Dimension.1 ~ dims_themes$taablaklaabos, ylab = "Dim 1", xlab = "Taabla/klaabos")
-#summary(lm(formula = Dimension.1 ~ Configuration.of.parts, data = both))
-
-# Check correlation between Dim1 and Configuration wrt Ground
-boxplot(dims_themes$Dimension.1 ~ dims_themes$nalhek, ylab = "Dim 1", xlab = "Nal/hek")
-#summary(lm(formula = Dimension.1 ~ Configuration.wrt.Ground, data = both))
-
-# Check correlation between Dim1 and Containment
-boxplot(dims_themes$Dimension.1 ~ dims_themes$xim, ylab = "Dim 1", xlab = "Xim")
-#summary(lm(formula = Dimension.1 ~ Containment, data = both))
-
-# Check correlation between Dim1 and Length of vertical dimension
-boxplot(dims_themes$Dimension.1 ~ dims_themes$kamyoon, ylab = "Dim 1", xlab = "Kamyoon")
-#summary(lm(formula = Dimension.1 ~ Length.of.vertical.dimension, data = both))
-
-# Check correlation between Dim1 and Inanimate
-boxplot(dims_themes$Dimension.1 ~ dims_themes$ha, ylab = "Dim 1", xlab = "Ha")
-#summary(lm(formula = Dimension.1 ~ Inanimate, data = both))
-
-# Check correlation between Dim1 and Numerosity
-boxplot(dims_themes$Dimension.1 ~ dims_themes$plastilina, ylab = "Dim 1", xlab = "Plastilina")
-#summary(lm(formula = Dimension.1 ~ Numerosity, data = both))
-
-# Check correlation between Dim1 and Material properties specified
-boxplot(dims_themes$Dimension.1 ~ dims_themes$luuch, ylab = "Dim 1", xlab = "Luuch")
-#summary(lm(Dimension.1 ~ Material.properties.specified, data = both))
-
-# Check correlation between Dim1 and Potential energy
-boxplot(dims_themes$Dimension.1 ~ dims_themes$poomo, ylab = "Dim 1", xlab = "Poomo")
-#summary(lm(formula = Dimension.1 ~ Potential.energy, data = both))
-
-# Check correlation between Dim1 and Contact
-boxplot(dims_themes$Dimension.1 ~ dims_themes$maaskab, ylab = "Dim 1", xlab = "Maaskab")
-#summary(lm(formula = Dimension.1 ~ Contact, data = both))
-
-boxplot(dims_themes$Dimension.1 ~ dims_themes$arena, ylab = "Dim 1", xlab = "Arena")
-```
-
-
-```{r}
+```{r,echo=FALSE}
 # MDS plots
-
+solution = mutate(solution, 'ClusterLabel' = factor(clust_labels_df$ClusterLabel))
 ###############
 # Dims 1 + 2
 ###############
-
-# #Make a plot that shows the MDS axes 1 and 2 and the variation
-# points <- fit$points
-# plt <- data.frame(Root=dataset$Root,
-#                             X=points[,1],
-#                             Y=points[,2])
-# plt <- mutate(plt, Root = df_prop$Root)
-# 
-# ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
-#   geom_text() +
-#   #geom_text_repel() +
-#   theme_bw() +
-#   xlab(paste("Dim1 - ", var[1], "%", sep="")) +
-#   ylab(paste("Dim2 - ", var[2], "%", sep="")) +
-#   ggtitle("MDS plot")
-
-ggplot(data=solution, aes(x=Dimension.1, y=Dimension.2, label=Root)) +
-  geom_text() +
-  #geom_text_repel() +
+#check_overlap = TRUE
+#jpeg("Figures/MDSDims1-2Subset.jpeg")
+plot1 <- ggplot(data=solution, aes(x=Dimension.1, y=Dimension.2, label=Root)) +
+  geom_text(position=position_jitter(width=0.15,height=0.15), size=3, aes(colour = ClusterLabel)) +
+  scale_color_brewer(palette="Paired") +
   theme_bw() +
-  xlab(paste("Dim1 - ", var[1], "%", sep="")) +
-  ylab(paste("Dim2 - ", var[2], "%", sep="")) +
-  ggtitle("MDS plot")
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 1 - ", var[1], "%", sep="")) +
+  ylab(paste("Dim 2 - ", var[2], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5) 
+  #ggtitle("MDS plot")
+#dev.off()
 
 ###############
-# Dims 2 + 3
+# Dims 2 + 1
 ###############
-
-# Make a plot that shows the MDS axes 2 and 3 and the variation
-# points <- fit$points
-# plt <- data.frame(Root=rownames(points),
-#                             X=points[,2],
-#                             Y=points[,3])
-# plt <- mutate(plt, Root = df_prop$Root)
-# 
-# 
-# ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
-#   geom_text() +
-#   theme_bw() +
-#   xlab(paste("Dim2 - ", var[2], "%", sep="")) +
-#   ylab(paste("Dim3 - ", var[3], "%", sep="")) +
-#   ggtitle("MDS plot")
-
-ggplot(data=solution, aes(x=Dimension.2, y=Dimension.3, label=Root)) +
-  geom_text() +
-  #geom_text_repel() +
+#jpeg("Figures/MDSDims2-1Subset.jpeg")
+plot2 <- ggplot(data=solution, aes(x=Dimension.2, y=Dimension.1, label=Root))+
+  geom_text(position=position_jitter(width=0.15,height=0.15),size=3, aes(colour = ClusterLabel)) +
+  scale_color_brewer(palette="Paired") +
   theme_bw() +
-  xlab(paste("Dim2 - ", var[2], "%", sep="")) +
-  ylab(paste("Dim3 - ", var[3], "%", sep="")) +
-  ggtitle("MDS plot")
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 2 - ", var[2], "%", sep="")) +
+  ylab(paste("Dim 1 - ", var[1], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5)  
+  #ggtitle("MDS plot")
+#dev.off()
 
 ###############
-# Dims 1 + 3
+# Dims 3 + 1
 ###############
-
-# Make a plot that shows the MDS axes 1 and 3 and the variation
-# points <- fit$points
-# plt <- data.frame(Root=rownames(points),
-#                             X=points[,1],
-#                             Y=points[,3])
-# plt <- mutate(plt, Root = df_prop$Root)
-# 
-# 
-# ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
-#   geom_text() +
-#   theme_bw() +
-#   xlab(paste("Dim1 - ", var[1], "%", sep="")) +
-#   ylab(paste("Dim3 - ", var[3], "%", sep="")) +
-#   ggtitle("MDS plot")
-ggplot(data=solution, aes(x=Dimension.1, y=Dimension.3, label=Root)) +
-  geom_text() +
-  #geom_text_repel() +
+#jpeg("Figures/MDSDims3-1Subset.jpeg")
+plot3 <- ggplot(data=solution, aes(x=Dimension.3, y=Dimension.1, label=Root)) +
+  geom_text(position=position_jitter(width=0.15,height=0.15),size=3, aes(colour = ClusterLabel)) +
+  scale_color_brewer(palette="Paired") +
   theme_bw() +
-  xlab(paste("Dim1 - ", var[1], "%", sep="")) +
-  ylab(paste("Dim3 - ", var[3], "%", sep="")) +
-  ggtitle("MDS plot")
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 3 - ", var[3], "%", sep="")) +
+  ylab(paste("Dim 1 - ", var[1], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5)   
+  #ggtitle("MDS plot")
+#dev.off()
+
+###############
+# Dims 4 + 1
+###############
+#jpeg("Figures/MDSDims4-1Subset.jpeg")
+plot4 <- ggplot(data=solution, aes(x=Dimension.4, y=Dimension.1, label=Root)) +
+  geom_text(position=position_jitter(width=0.15,height=0.15),size=3, aes(colour = ClusterLabel)) +
+  scale_color_brewer(palette="Paired") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 4 - ", var[4], "%", sep="")) +
+  ylab(paste("Dim 1 - ", var[1], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5)  
+  #ggtitle("MDS plot")
+#dev.off()
+
+###############
+# Dims 5 + 1
+###############
+#jpeg("Figures/MDSDims5-1Subset.jpeg")
+plot5 <- ggplot(data=solution, aes(x=Dimension.5, y=Dimension.1, label=Root)) +
+  geom_text(position=position_jitter(width=0.15,height=0.15),size=3, aes(colour = ClusterLabel)) +
+  scale_color_brewer(palette="Paired") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 5 - ", var[5], "%", sep="")) +
+  ylab(paste("Dim 1 - ", var[1], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5)  
+  #ggtitle("MDS plot")
+#dev.off()
+
+###############
+# Dims 6 + 1
+###############
+#jpeg("Figures/MDSDims6-1Subset.jpeg")
+plot6 <- ggplot(data=solution, aes(x=Dimension.6, y=Dimension.1, label=Root)) +
+  geom_text(position=position_jitter(width=0.15,height=0.15),size=3, aes(colour = ClusterLabel)) +
+  scale_color_brewer(palette="Paired") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab(paste("Dim 6 - ", var[6], "%", sep="")) +
+  ylab(paste("Dim 1 - ", var[1], "%", sep="")) + 
+    xlim(-1.5, 1.5) +
+    ylim(-1.5,1.5)  
+  #ggtitle("MDS plot")
+#dev.off()
+#library(gridExtra)
+#jpeg("Figures/MDSPlotsColor.jpeg", width = 1180, height = 1180,res=100)
+#grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6)
+#dev.off()
+plot1
+plot2
+plot3
+plot4
+plot5
+plot6
 ```
 
+The code below extracts the roots with the highest absolute values for the first three dimensions, i.e. the roots which are at the positive and negative extremes in each dimension. Since these roots had the highest (or lowest) load in each dimension, inspecting them might help us interpret the dimensions.     
 
-```{r, echo=FALSE,include=FALSE}
-# MDS plots with interactive labels
+```{r,echo=FALSE}
+# Roots that had the highest absolute value
 
-# Import and prepare glosses for interactive labels
-roots_glosses <- read.delim("../QP_Data/roots_glosses.txt")
-roots_glosses$Root <- as.factor(roots_glosses$Root)
-roots_glosses$Gloss <- as.factor(roots_glosses$Gloss)
-roots_glosses$rg <- paste(roots_glosses$Root, ":", roots_glosses$Gloss)
+# Dim 1
+scores <- tibble('PointsDim1'=solution$Dimension.1,'Root'=solution$Root)
+abs_scores <- mutate(scores, 'PointsDim1'=abs(scores$PointsDim1))
+sort_abs_ascores <- abs_scores[order(abs_scores$PointsDim1, decreasing = TRUE), ]
+top_10 <- sort_abs_ascores[1:10,]
+scores[which(scores$Root %in% top_10$Root),]
 
-###############
-# Dims 1 + 2
-###############
+# Dim 2
+scores <- tibble('PointsDim2'=solution$Dimension.2,'Root'=solution$Root)
+abs_scores <- mutate(scores, 'PointsDim2'=abs(scores$PointsDim2))
+sort_abs_ascores <- abs_scores[order(abs_scores$PointsDim2, decreasing = TRUE), ]
+top_10 <- sort_abs_ascores[1:10,]
+scores[which(scores$Root %in% top_10$Root),]
 
-# Make a plot that shows the MDS axes 1 and 2 and the variation
-points <- fit$points
-plt <- data.frame(Root=rownames(points),
-                            X=points[,1],
-                            Y=points[,2])
-plt <- mutate(plt, Root = solution$Root)
-
-onetwo <- ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
-  geom_text() +
-  #geom_text_repel() +
-  theme_bw() +
-  xlab(paste("Dim1 - ", var[1], "%", sep="")) +
-  ylab(paste("Dim2 - ", var[2], "%", sep="")) +
-  ggtitle("MDS plot")
-
-onetwogg <- onetwo + geom_point_interactive(aes(tooltip = roots_glosses$rg), size = 2)
-ggiraph(code = print(onetwogg))
-onetwogg
-
-# To hover
-#my_gg <- onetwogg + geom_point_interactive(
-#    aes(tooltip = roots_glosses$rg, data_id = roots_glosses$rg), size = 2)
-#ggiraph(code = print(my_gg))
-
-###############
-# Dims 2 + 3
-###############
-
-# Make a plot that shows the MDS axes 2 and 3 and the variation
-points <- fit$points
-plt <- data.frame(Root=rownames(points),
-                            X=points[,2],
-                            Y=points[,3])
-plt <- mutate(plt, Root = solution$Root)
-
-
-twothree <- ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
-  geom_text() +
-  theme_bw() +
-  xlab(paste("Dim2 - ", var[2], "%", sep="")) +
-  ylab(paste("Dim3 - ", var[3], "%", sep="")) +
-  ggtitle("MDS plot")
-
-twothreegg <- twothree + geom_point_interactive(aes(tooltip = roots_glosses$rg), size = 2)
-ggiraph(code = print(twothreegg))
-twothreegg
-
-###############
-# Dims 1 + 3
-###############
-
-# Make a plot that shows the MDS axes 1 and 3 and the variation
-points <- fit$points
-plt <- data.frame(Root=rownames(points),
-                            X=points[,1],
-                            Y=points[,3])
-plt <- mutate(plt, Root = solution$Root)
-
-
-onethree <- ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
-  geom_text() +
-  theme_bw() +
-  xlab(paste("Dim1 - ", var[1], "%", sep="")) +
-  ylab(paste("Dim3 - ", var[3], "%", sep="")) +
-  ggtitle("MDS plot")
-
-onethreegg <- onethree + geom_point_interactive(aes(tooltip = roots_glosses$rg), size = 2)
-ggiraph(code = print(onethreegg))
-onethreegg
+# Dim 3
+scores <- tibble('PointsDim3'=solution$Dimension.3,'Root'=solution$Root)
+abs_scores <- mutate(scores, 'PointsDim3'=abs(scores$PointsDim3))
+sort_abs_ascores <- abs_scores[order(abs_scores$PointsDim3, decreasing = TRUE), ]
+top_10 <- sort_abs_ascores[1:10,]
+scores[which(scores$Root %in% top_10$Root),]
 ```
- 
- 
-```{r, include=FALSE}
-# # Modify dataset for Hamming distance:
-# # 0 = Not Acceptable
-# # 1 = Acceptable
-# # 2 = Acceptable for part of the figure / marginal acceptability
-# # 3 = NA
-# 
-# # Replace 0.5 by 2
-# dataset_ham <- replace.value(dataset, c("suum","tuunich","nook","che","wiinik","peek", "kaan", "taablaklaabos", "nalhek",
-#                                         "xim", "kamyoon", "ha", "plastilina", "luuch", "poomo", "maaskab", "hun", "arena"), from=0.5, to=as.integer(2))
-# 
-# # Replace NA by 3
-# dataset_ham <- replace.value(dataset_ham, c("suum","tuunich","nook","che","wiinik","peek", "kaan", "taablaklaabos", "nalhek",
-#                                         "xim", "kamyoon", "ha", "plastilina", "luuch", "poomo", "maaskab", "hun", "arena"), from=NA, to=as.integer(3))
-# 
-# summary(dataset_ham)
-# 
-# # Have to merge roots!
+
+# Hierarchical Clustering Analysis
+
+This section performs agglomerative hierarchical clustering analysis on the dataset of 40 roots. 
+
+```{r}
+# Hierarchical clustering
+
+# Add labbels to dist matrix
+library(usedist)
+dm <- dist_setNames(dm, rootnames_sub)
+
+# Create solution for clustering
+clustering_solution <- hclust(dm, method="average")
+plot(clustering_solution, cex=0.7)
+```
+
+```{r}
+# Calculate silhouette widths (adapted from Levshina 2020)
+library(cluster)
+silwidths <- c()
+for (i in 2:30){
+silwidths <- c(silwidths, summary(silhouette(x = cutree(clustering_solution, k = i), dist = dm))$avg.width)
+}
+#jpeg("Figures/AvgSilWidths.jpeg")
+plot(x = 2:30, silwidths, type = "b", xlab = "Number of clusters", ylab = "Average silhouette width")
+#dev.off()
+```
+
+```{r}
+# Convert to dendrogram object and format so that each cluster receives a different color,
+# based on the number of optimal clusters (12) from the silhouette widths
+d <- as.dendrogram(clustering_solution,hang = 0.1)
+#jpeg("Figures/HierarchicalClustering.jpeg")
+d %>% set("labels_col", k=12) %>% set("labels_cex", c(0.7)) %>% plot()
+#dev.off()
 ```
 
 
 ```{r}
+#Get the labels based on the top 12 splits
+ClusterLabel <- cutree(clustering_solution, k=12)
+clust_labels_df <- data.frame(ClusterLabel) %>% rownames_to_column("Root")
+
+# Sort by Cluster label in increasing order
+sort_clust_labels_df <- clust_labels_df[order(clust_labels_df$ClusterLabel), ]
+sort_clust_labels_df
+#write.csv(sort_clust_labels_df, file="Outputs/clustering_labels_Subset.csv", row.names=FALSE)
+```
+
+
+# Semantic categories
+
+In this next section, I import the dataset created by Tim Tilbe for his QP and explore the MDS dimensions with the semantic variables proposed in his dataset. Tilbe coded, for each proposed semantic dimension, 1 if a given dispositional root was hypothesized to be specified for this dimension, 0 if not, and 1?/0? if in doubt. For this analysis, I have replaced the doubful cases by NAs. Below is a summary of the dataset:
+
+```{r,include=FALSE}
 #Import dataset with semantic dimensions 
 semdim <- read_csv("../QP_Data/Tilbe_dimensions.csv", col_types = cols(
   ROOT = col_factor(),
@@ -431,7 +575,6 @@ semdim <- read_csv("../QP_Data/Tilbe_dimensions.csv", col_types = cols(
   Contact = col_factor()
   ))
 
-
 # Change 0? and 1? into NAs
 levels(semdim$Suspension)[levels(semdim$Suspension)=='1?'] <- NA
 levels(semdim$Blockage.of.motion)[levels(semdim$Blockage.of.motion)=='0?'] <- NA
@@ -447,378 +590,261 @@ levels(semdim$Contact)[levels(semdim$Contact)=='1?'] <- NA
 levels(semdim$Contact)[levels(semdim$Contact)=='0?'] <- NA
 
 summary(semdim)
-
-
-# Change 0? and 1? into 2s (for Hamming distance)
-levels(semdimdf$Suspension)[levels(semdimdf$Suspension)=='1?'] <- 2
-levels(semdimdf$Blockage.of.motion)[levels(semdimdf$Blockage.of.motion)=='0?'] <- 2
-levels(semdimdf$Orientation.in.vertical)[levels(semdimdf$Orientation.in.vertical)=='1?'] <- 2
-levels(semdimdf$Dispersion)[levels(semdimdf$Dispersion)=='1?'] <- 2
-levels(semdimdf$Length.of.vertical.dimension)[levels(semdimdf$Length.of.vertical.dimension)=='1?'] <- 2
-levels(semdimdf$Animate)[levels(semdimdf$Animate)=='1?'] <- 2
-levels(semdimdf$Numerosity)[levels(semdimdf$Numerosity)=='1?'] <- 2
-levels(semdimdf$Numerosity)[levels(semdimdf$Numerosity)=='0?'] <- 2
-levels(semdimdf$Material.properties.specified)[levels(semdimdf$Material.properties.specified)=='1?'] <- 2
-levels(semdimdf$Potential.energy)[levels(semdimdf$Potential.energy)=='1?'] <- 2
-levels(semdimdf$Contact)[levels(semdimdf$Contact)=='1?'] <- 2
-levels(semdimdf$Contact)[levels(semdimdf$Contact)=='0?'] <- 2
-
-summary(semdimdf)
 ```
-  
-```{r}
+
+Because the dispositional roots in Tilbe's dataset are not exactly the same in the one used in this analysis (Tilbe's dataset has 121 roots and the one used in this analysis has 132, and the subset has only 40), we have to make a subgroup of those roots that are used in both datasets to be able to correlate them. This is done below:
+
+```{r,include=FALSE}
 # Keep only those rows that have roots in common (between semantic dimensions and mds dimensions dataframes)
-semdimdf <- semdim[which(semdim$ROOT %in% rootnames),]
+semdimdf <- semdim[which(semdim$ROOT %in% rootnames_sub),]
 mdsdimdf <- solution[which(solution$Root %in% semdimdf$ROOT),]
 
 # Merge both dataframes into one
 both <- cbind(semdimdf,mdsdimdf)
 ```
 
-```{r, include=FALSE}
-#(dim1_anim)
-# slope represents change from intercept (semdimdf$Animate = 0) towards semdimdf$Animate = 1
+Now we can test the correlation between MDS Dimensions and the semantic variables in Tilbe's analysis. Below are boxplots for each dimension against each variable and the t-tests (following Baayen, 2008) that yielded a significant result:
 
-# # Change reference levels so that inanimate = 1 is ref
-# both <- mutate(both, Inanimate  = factor (Inanimate), InRe = relevel(Inanimate, ref= '1'))
-# # New boxplot and lm
-# boxplot(formula = Dimension.1 ~ InRe, data = both)
-# lm(formula = Dimension.1 ~ InRe, data = both)
-
-# Try sum-coding
-# both <- mutate(both, AnSum = Animate)
-# contrasts(both$AnSum) <- contr.sum(2)
-# lm (Dimension.1 ~ AnSum, data = both) %>% tidy %>% select(term, estimate)
-# boxplot(Dimension.1 ~ AnSum, data = both)
-# Use sum contrast coding for Tone
-# triqui_3 <- mutate(triqui_2, Ctrd.Tone = factor(Tone))
-# contrasts(both$Animate) <- contr.sum(2)
-# contrasts(both$Animate)
-
-# Multiple Regression Model
-# summary(lm(formula = Dimension.1 ~ Animate + Support, data = both))
-# summary(step <- step(lm(Dimension.1~1, data=both), Dimension.1~Animate+Support+Leaning+Suspension+Blockage.of.motion+Orientation.in.vertical+Dispersion+Configuration.of.parts+Configuration.wrt.Ground+Containment+Length.of.vertical.dimension+Inanimate+Numerosity+Material.properties.specified+Potential.energy+Contact))
-
-##########
-```
-
-```{r}
+```{r,echo=FALSE}
 # Boxplots Dim1 ~ .Semantic variables
 
 # Prepare canvas
-par(mfrow=c(3,6))
+#jpeg("Dim1Boxplots.jpeg")
+#par(mfrow=c(4,4))
 
 # Check correlation between Dim1 and Animate
 boxplot(both$Dimension.1 ~ both$Animate, ylab = "Dim 1", xlab = "Animate")
-#summary(lm(Dimension.1 ~ Animate, data = both))
 
 # Check correlation between Dim1 and Support
 boxplot(both$Dimension.1 ~ both$Support, ylab = "Dim 1", xlab = "Support")
-#summary(lm(formula = Dimension.1 ~ Support, data = both))
 
 # Check correlation between Dim1 and Leaning
 boxplot(both$Dimension.1 ~ both$Leaning, ylab = "Dim 1", xlab = "Leaning")
-#summary(lm(formula = Dimension.1 ~ Leaning, data = both))
 
 # Check correlation between Dim1 and Suspension
 boxplot(both$Dimension.1 ~ both$Suspension, ylab = "Dim 1", xlab = "Suspension")
-#summary(lm(formula = Dimension.1 ~ Suspension, data = both))
 
 # Check correlation between Dim1 and Blockage of motion
 boxplot(both$Dimension.1 ~ both$Blockage.of.motion, ylab = "Dim 1", xlab = "Blockage of motion")
-#summary(lm(formula = Dimension.1 ~ Blockage.of.motion, data = both))
 
 # Check correlation between Dim1 and Orientation in vertical
 boxplot(both$Dimension.1 ~ both$Orientation.in.vertical, ylab = "Dim 1", xlab = "Orientation in vert")
-#summary(lm(formula = Dimension.1 ~ Orientation.in.vertical, data = both))
 
 # Check correlation between Dim1 and Dispersion
 boxplot(both$Dimension.1 ~ both$Dispersion, ylab = "Dim 1", xlab = "Dispersion")
-#summary(lm(formula = Dimension.1 ~ Dispersion, data = both))
 
 # Check correlation between Dim1 and Configuartion of parts
 boxplot(both$Dimension.1 ~ both$Configuration.of.parts, ylab = "Dim 1", xlab = "Config. of parts")
-#summary(lm(formula = Dimension.1 ~ Configuration.of.parts, data = both))
 
 # Check correlation between Dim1 and Configuration wrt Ground
 boxplot(both$Dimension.1 ~ both$Configuration.wrt.Ground, ylab = "Dim 1", xlab = "Config. wrt ground")
-#summary(lm(formula = Dimension.1 ~ Configuration.wrt.Ground, data = both))
 
 # Check correlation between Dim1 and Containment
 boxplot(both$Dimension.1 ~ both$Containment, ylab = "Dim 1", xlab = "Containment")
-#summary(lm(formula = Dimension.1 ~ Containment, data = both))
 
 # Check correlation between Dim1 and Length of vertical dimension
 boxplot(both$Dimension.1 ~ both$Length.of.vertical.dimension, ylab = "Dim 1", xlab = "Length of vert dim")
-#summary(lm(formula = Dimension.1 ~ Length.of.vertical.dimension, data = both))
 
 # Check correlation between Dim1 and Inanimate
 boxplot(both$Dimension.1 ~ both$Inanimate, ylab = "Dim 1", xlab = "Inanimate")
-#summary(lm(formula = Dimension.1 ~ Inanimate, data = both))
 
 # Check correlation between Dim1 and Numerosity
 boxplot(both$Dimension.1 ~ both$Numerosity, ylab = "Dim 1", xlab = "Numerosity")
-#summary(lm(formula = Dimension.1 ~ Numerosity, data = both))
 
 # Check correlation between Dim1 and Material properties specified
 boxplot(both$Dimension.1 ~ both$Material.properties.specified, ylab = "Dim 1", xlab = "Material properties spec")
-#summary(lm(Dimension.1 ~ Material.properties.specified, data = both))
 
 # Check correlation between Dim1 and Potential energy
 boxplot(both$Dimension.1 ~ both$Potential.energy, ylab = "Dim 1", xlab = "Potential energy")
-#summary(lm(formula = Dimension.1 ~ Potential.energy, data = both))
 
 # Check correlation between Dim1 and Contact
 boxplot(both$Dimension.1 ~ both$Contact, ylab = "Dim 1", xlab = "Contact")
-#summary(lm(formula = Dimension.1 ~ Contact, data = both))
+#dev.off()
 ```
-```{r}
-# T-test for correlation 
+
+
+```{r, include=FALSE}
+# Welch Two-Sample T-tests DIM 1
 t.test(both$Dimension.1~both$Animate)
+t.test(both$Dimension.1~both$Support)
+t.test(both$Dimension.1~both$Leaning)
+t.test(both$Dimension.1~both$Suspension)
+t.test(both$Dimension.1~both$Blockage.of.motion)
+t.test(both$Dimension.1~both$Orientation.in.vertical)
+t.test(both$Dimension.1~both$Dispersion)
+t.test(both$Dimension.1~both$Configuration.of.parts)
+t.test(both$Dimension.1~both$Configuration.wrt.Ground)
+t.test(both$Dimension.1~both$Containment)
+t.test(both$Dimension.1~both$Length.of.vertical.dimension)
+t.test(both$Dimension.1~both$Inanimate)
+t.test(both$Dimension.1~both$Numerosity)
 t.test(both$Dimension.1~both$Material.properties.specified)
+t.test(both$Dimension.1~both$Potential.energy)
+t.test(both$Dimension.1~both$Contact)
 ```
 
-```{r}
-# Sum-coding for multiple categorical predictors
-both <- mutate(both, AnSum = Animate)
-contrasts(both$AnSum) <- contr.sum(2)
-both <- mutate(both, MPSum = Material.properties.specified)
-contrasts(both$MPSum) <- contr.sum(2)
-both <- mutate(both, OVSum = Orientation.in.vertical)
-contrasts(both$OVSum) <- contr.sum(2)
-
-# Multiple Regression Model for Dim 1 testing Animate, Material.properties.specified 
-# and Orientation in vertical as predictors
-#summary(lm(Dimension.1 ~ Animate + Material.properties.specified, data = both))
-dim1.AnMP <- lm(Dimension.1 ~ AnSum + MPSum, data = both)
-summary(dim1.AnMP)
-
-#summary(lm(Dimension.1 ~ Animate + Material.properties.specified + 
-#             Orientation.in.vertical, data = both))
-dim1.AnMPOV <- lm(Dimension.1 ~ AnSum + MPSum + 
-             OVSum, data = both)
-summary(dim1.AnMPOV)
-
-#summary(lm(Dimension.1 ~ Animate + Orientation.in.vertical, data = both))
-dim1.AnOV <- lm(Dimension.1 ~ AnSum + OVSum, data = both)
-summary(dim1.AnOV)
-
-# Assessing collinearity
-vif(dim1.AnMP)
-vif(dim1.AnMPOV)
-vif(dim1.AnOV)
-```
-
-```{r}
+```{r,echo=FALSE}
 # Boxplots Dim2 ~ .Semantic variables
 
 # Prepare canvas
-par(mfrow=c(3,6))
+#jpeg("Dim2Boxplots.jpeg")
+#par(mfrow=c(4,4))
 
 # Check correlation between Dim2 and Animate
 boxplot(both$Dimension.2 ~ both$Animate, ylab = "Dim 2", xlab = "Animate")
-#summary(lm(formula = Dimension.2 ~ Animate, data = both))
 
 # Check correlation between Dim2 and Support
 boxplot(both$Dimension.2 ~ both$Support, ylab = "Dim 2", xlab = "Support")
-#summary(lm(formula = Dimension.2 ~ Support, data = both))
 
 # Check correlation between Dim2 and Leaning
 boxplot(both$Dimension.2 ~ both$Leaning, ylab = "Dim 2", xlab = "Leaning")
-#summary(lm(formula = Dimension.2 ~ Leaning, data = both))
 
 # Check correlation between Dim2 and Suspension
 boxplot(both$Dimension.2 ~ both$Suspension, ylab = "Dim 2", xlab = "Suspension")
-#summary(lm(Dimension.2 ~ Suspension, data = both))
 
 # Check correlation between Dim2 and Blockage of motion
 boxplot(both$Dimension.2 ~ both$Blockage.of.motion, ylab = "Dim 2", xlab = "Blockage of motion")
-#summary(lm(formula = Dimension.2 ~ Blockage.of.motion, data = both))
 
 # Check correlation between Dim2 and Orientation in vertical
 boxplot(both$Dimension.2 ~ both$Orientation.in.vertical, ylab = "Dim 2", xlab = "Orientation in vert")
-#summary(lm(formula = Dimension.2 ~ Orientation.in.vertical, data = both))
 
 # Check correlation between Dim2 and Dispersion
 boxplot(both$Dimension.2 ~ both$Dispersion, ylab = "Dim 2", xlab = "Dispersion")
-#summary(lm(formula = Dimension.2 ~ Dispersion, data = both))
 
 # Check correlation between Dim2 and Configuartion of parts
 boxplot(both$Dimension.2 ~ both$Configuration.of.parts, ylab = "Dim 2", xlab = "Config. of parts")
-#summary(lm(formula = Dimension.2 ~ Configuration.of.parts, data = both))
 
 # Check correlation between Dim2 and Configuration wrt Ground
 boxplot(both$Dimension.2 ~ both$Configuration.wrt.Ground, ylab = "Dim 2", xlab = "Config. wrt ground")
-#summary(lm(formula = Dimension.2 ~ Configuration.wrt.Ground, data = both))
 
 # Check correlation between Dim2 and Containment
 boxplot(both$Dimension.2 ~ both$Containment, ylab = "Dim 2", xlab = "Containment")
-#summary(lm(formula = Dimension.2 ~ Containment, data = both))
 
 # Check correlation between Dim2 and Length of vertical dimension
 boxplot(both$Dimension.2 ~ both$Length.of.vertical.dimension, ylab = "Dim 2", xlab = "Length of vert dim")
-#summary(lm(formula = Dimension.2 ~ Length.of.vertical.dimension, data = both))
 
 # Check correlation between Dim2 and Inanimate
 boxplot(both$Dimension.2 ~ both$Inanimate, ylab = "Dim 2", xlab = "Inanimate")
-#summary(lm(formula = Dimension.2 ~ Inanimate, data = both))
 
 # Check correlation between Dim2 and Numerosity
 boxplot(both$Dimension.2 ~ both$Numerosity, ylab = "Dim 2", xlab = "Numerosity")
-#summary(lm(formula = Dimension.2 ~ Numerosity, data = both))
 
 # Check correlation between Dim2 and Material properties specified
 boxplot(both$Dimension.2 ~ both$Material.properties.specified, ylab = "Dim 2", xlab = "Material properties spec")
-#summary(lm(formula = Dimension.2 ~ Material.properties.specified, data = both))
 
 # Check correlation between Dim2 and Potential energy
 boxplot(both$Dimension.2 ~ both$Potential.energy, ylab = "Dim 2", xlab = "Potential energy")
-#summary(lm(formula = Dimension.2 ~ Potential.energy, data = both))
 
 # Check correlation between Dim2 and Contact
 boxplot(both$Dimension.2 ~ both$Contact, ylab = "Dim 2", xlab = "Contact")
-#summary(lm(formula = Dimension.2 ~ Contact, data = both))
+#dev.off()
 ```
-```{r}
-# T-test for correlation 
+
+```{r, include=FALSE}
+# Welsh Two-Sample T-tests DIM 2
+t.test(both$Dimension.2~both$Animate)
+t.test(both$Dimension.2~both$Support)
+t.test(both$Dimension.2~both$Leaning)
 t.test(both$Dimension.2~both$Suspension)
+t.test(both$Dimension.2~both$Blockage.of.motion)
+t.test(both$Dimension.2~both$Orientation.in.vertical)
+t.test(both$Dimension.2~both$Dispersion)
+t.test(both$Dimension.2~both$Configuration.of.parts)
+t.test(both$Dimension.2~both$Configuration.wrt.Ground)
+t.test(both$Dimension.2~both$Containment)
+t.test(both$Dimension.2~both$Length.of.vertical.dimension)
+t.test(both$Dimension.2~both$Inanimate)
+t.test(both$Dimension.2~both$Numerosity)
+t.test(both$Dimension.2~both$Material.properties.specified)
+t.test(both$Dimension.2~both$Potential.energy)
+t.test(both$Dimension.2~both$Contact)
 ```
 
-```{r}
-# Sum-coding for multiple categorical predictors
-both <- mutate(both, SuSum = Suspension)
-contrasts(both$SuSum) <- contr.sum(2)
-both <- mutate(both, PESum = Potential.energy)
-contrasts(both$PESum) <- contr.sum(2)
-both <- mutate(both, InSum = Inanimate)
-contrasts(both$InSum) <- contr.sum(2)
-
-# Multiple Regression Model for Dim 2 testing Suspension, Potential.energy
-# and Inanimate as predictors
-#summary(lm(formula = Dimension.2 ~ Suspension + Potential.energy, data = both))
-dim2.SuPE <- lm(Dimension.2 ~ SuSum + PESum, data = both)
-summary(dim2.SuPE)
-
-#summary(lm(formula = Dimension.2 ~ Suspension + Potential.energy + 
-#             Inanimate, data = both))
-dim2.SuPEIn <- lm(Dimension.2 ~ SuSum + PESum + InSum, data = both)
-summary(dim2.SuPEIn)
-
-#summary(lm(formula = Dimension.2 ~ Suspension + Inanimate, data = both))
-dim2.SuIn <- lm(Dimension.2 ~ SuSum + InSum, data = both)
-summary(dim2.SuIn)
-  
-# Assessing collinearity
-vif(dim2.SuPE)
-vif(dim2.SuPEIn)
-vif(dim2.SuIn)
-```
-
-```{r}
+```{r,echo=FALSE}
 # Boxplots Dim3 ~ .Semantic variables
 
 # Prepare canvas
-par(mfrow=c(3,6))
+#jpeg("Dim3Boxplots.jpeg")
+#par(mfrow=c(4,4))
 
 # Check correlation between Dim3 and Animate
 boxplot(both$Dimension.3 ~ both$Animate, ylab = "Dim 3", xlab = "Animate")
-#summary(lm(formula = Dimension.3 ~ Animate, data = both))
 
 # Check correlation between Dim3 and Support
 boxplot(both$Dimension.3 ~ both$Support, ylab = "Dim 3", xlab = "Support")
-#summary(lm(formula = Dimension.3 ~ Support, data = both))
 
 # Check correlation between Dim3 and Leaning
 boxplot(both$Dimension.3 ~ both$Leaning, ylab = "Dim 3", xlab = "Leaning")
-#summary(lm(formula = Dimension.3 ~ Leaning, data = both))
 
 # Check correlation between Dim3 and Suspension
 boxplot(both$Dimension.3 ~ both$Suspension, ylab = "Dim 3", xlab = "Suspension")
-#summary(lm(formula = Dimension.3 ~ Suspension, data = both))
 
 # Check correlation between Dim3 and Blockage of motion
 boxplot(both$Dimension.3 ~ both$Blockage.of.motion, ylab = "Dim 3", xlab = "Blockage of motion")
-#summary(lm(formula = Dimension.3 ~ Blockage.of.motion, data = both))
 
 # Check correlation between Dim3 and Orientation in vertical
-boxplot(both$Dimension.1 ~ both$Orientation.in.vertical, ylab = "Dim 3", xlab = "Orientation in vert")
-#summary(lm(formula = Dimension.1 ~ Orientation.in.vertical, data = both))
+boxplot(both$Dimension.3 ~ both$Orientation.in.vertical, ylab = "Dim 3", xlab = "Orientation in vert")
 
 # Check correlation between Dim3 and Dispersion
 boxplot(both$Dimension.3 ~ both$Dispersion, ylab = "Dim 3", xlab = "Dispersion")
-#summary(lm(formula = Dimension.3 ~ Dispersion, data = both))
 
 # Check correlation between Dim3 and Configuartion of parts
 boxplot(both$Dimension.3 ~ both$Configuration.of.parts, ylab = "Dim 3", xlab = "Config. of parts")
-#summary(lm(formula = Dimension.3 ~ Configuration.of.parts, data = both))
 
 # Check correlation between Dim3 and Configuration wrt Ground
 boxplot(both$Dimension.3 ~ both$Configuration.wrt.Ground, ylab = "Dim 3", xlab = "Config. wrt ground")
-#summary(lm(formula = Dimension.3 ~ Configuration.wrt.Ground, data = both))
 
 # Check correlation between Dim3 and Containment
 boxplot(both$Dimension.3 ~ both$Containment, ylab = "Dim 3", xlab = "Containment")
-#summary(lm(formula = Dimension.3 ~ Containment, data = both))
 
 # Check correlation between Dim3 and Length of vertical dimension
 boxplot(both$Dimension.3 ~ both$Length.of.vertical.dimension, ylab = "Dim 3", xlab = "Length of vert dim")
-#summary(lm(formula = Dimension.3 ~ Length.of.vertical.dimension, data = both))
 
 # Check correlation between Dim3 and Inanimate
 boxplot(both$Dimension.3 ~ both$Inanimate, ylab = "Dim 3", xlab = "Inanimate")
-#summary(lm(formula = Dimension.3 ~ Inanimate, data = both))
 
 # Check correlation between Dim3 and Numerosity
 boxplot(both$Dimension.3 ~ both$Numerosity, ylab = "Dim 3", xlab = "Numerosity")
-#summary(lm(formula = Dimension.3 ~ Numerosity, data = both))
 
 # Check correlation between Dim3 and Material properties specified
 boxplot(both$Dimension.3 ~ both$Material.properties.specified, ylab = "Dim 3", xlab = "Material properties spec")
-#summary(lm(formula = Dimension.3 ~ Material.properties.specified, data = both))
 
 # Check correlation between Dim3 and Potential energy
 boxplot(both$Dimension.3 ~ both$Potential.energy, ylab = "Dim 3", xlab = "Potential energy")
-#summary(lm(formula = Dimension.3 ~ Potential.energy, data = both))
 
 # Check correlation between Dim3 and Contact
 boxplot(both$Dimension.3 ~ both$Contact, ylab = "Dim 3", xlab = "Contact")
-#summary(lm(Dimension.3 ~ Contact, data = both))
+#dev.off()
 ```
-```{r}
-# T-test for correlation 
+
+```{r, include=FALSE}
+# Welsh Two-Sample T-tests DIM 3
+t.test(both$Dimension.3~both$Animate)
+t.test(both$Dimension.3~both$Support)
+t.test(both$Dimension.3~both$Leaning)
+t.test(both$Dimension.3~both$Suspension)
+t.test(both$Dimension.3~both$Blockage.of.motion)
+t.test(both$Dimension.3~both$Orientation.in.vertical)
+t.test(both$Dimension.3~both$Dispersion)
+t.test(both$Dimension.3~both$Configuration.of.parts)
+t.test(both$Dimension.3~both$Configuration.wrt.Ground)
+t.test(both$Dimension.3~both$Containment)
+t.test(both$Dimension.3~both$Length.of.vertical.dimension)
+t.test(both$Dimension.3~both$Inanimate)
+t.test(both$Dimension.3~both$Numerosity)
+t.test(both$Dimension.3~both$Material.properties.specified)
+t.test(both$Dimension.3~both$Potential.energy)
 t.test(both$Dimension.3~both$Contact)
 ```
 
-```{r}
-# Sum-coding for multiple categorical predictors
-both <- mutate(both, CoSum = Contact)
-contrasts(both$CoSum) <- contr.sum(2)
 
-# Multiple Regression Model for Dim 3 testing Contact, Orientation.in.veritcal,
-# and Inanimate as predictors
-#summary(lm(formula = Dimension.3 ~ Contact + Orientation.in.vertical, data = both))
-dim3.CoOV <- lm(Dimension.3 ~ CoSum + OVSum, data = both)
-summary(dim3.CoOV)
-  
-#summary(lm(formula = Dimension.3 ~ Contact + Orientation.in.vertical + 
-#             Inanimate, data = both))
-dm3.CoOVIn <- lm(Dimension.3 ~ CoSum + OVSum + InSum, data = both)
-summary(dm3.CoOVIn)
+# Model comparison
 
-#summary(lm(formula = Dimension.3 ~ Contact + Inanimate, data = both))
-dim3.CoIn <- lm(Dimension.3 ~ CoSum + InSum, data = both)
-summary(dim3.CoIn)
-  
-# Assessing collinearity
-vif(dim3.CoOV)
-vif(dm3.CoOVIn)
-vif(dim3.CoIn)
-```
+The table below shows a comparison of the variance accounted for by the first three dimensions of the different MDS models tested. W/NA vs No NA makes reference to the way the proportion of speakers that found a pair of root+theme acceptable was calculated (recall the example above, where 1,1,NA,1,1,1 would give 0.83 for W/NA and 1 for No NA). All themes vs Selected themes makes reference to the number of theme/figures that were included in the analysis. For the selected themes models, the themes used were the most tested ones, as shown in the heatmap above. Selected themes and roots is the last model, in which both themes and roots were filtered, and which was tested on 40 roots. The table shows that the current analysis (a model with No NA, Selected themes & roots), is the one that accounts for more variance in the data.
 
-```{r, include = FALSE}
-# Divide roots according to support 1/0
-supportyes <- both[both$Support == 1,]$ROOT
-supportno <- both[both$Support == 0,]$ROOT
-supportyes
-supportno
-```
+Dimension | W/NA, All themes | W/NA, Selected themes   | No NA, All themes  | No NA, Selected themes | No NA, Selected themes & roots
+----      | -----            | -----                   | -----              | -----              | -----
+1         | 21.5%            | 27.9%                   | 21.2%              | 27.4%              | 43.3%
+2         | 17%              | 21.6%                   | 18.1%              | 23.4%              | 19.3%
+3         | 12.2%            | 16.6%                   | 13%                | 16.8%              | 16.3%
+TOTAL     | 50.7%            | 66.1%                   | 52.3%              | 67.6%              | 78.9%

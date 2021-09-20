@@ -1,0 +1,125 @@
+---
+title: "QP: Data Analysis"
+output:
+  html_document:
+    author: "Magali Lopez Cortez"
+    date: "`r format(Sys.time(), '%d %B, %Y')`"
+    df_print: paged
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+# Interactive Plots
+
+Here is another, and interactive, version of the MDS plots. By hovering the cursor over the roots, the gloss corresponding to that particular root can be read.
+
+```{r}
+#{r, echo=FALSE,include=FALSE} # TO BE CHECKED
+# MDS plots with interactive labels
+
+# Import and prepare glosses for interactive labels
+roots_glosses <- read.delim("../QP_Data/roots_glosses.txt")
+roots_glosses$Root <- as.factor(roots_glosses$Root)
+roots_glosses$Gloss <- as.factor(roots_glosses$Gloss)
+roots_glosses$rg <- paste(roots_glosses$Root, ":", roots_glosses$Gloss)
+
+###############
+# Dims 1 + 2
+###############
+
+# Make a plot that shows the MDS axes 1 and 2 and the variation
+points <- fit$points
+plt <- data.frame(Root=rownames(points),
+                            X=points[,1],
+                            Y=points[,2])
+plt <- mutate(plt, Root = solution$Root)
+
+onetwo <- ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
+  geom_text() +
+  theme_bw() +
+  xlab(paste("Dim1 - ", var[1], "%", sep="")) +
+  ylab(paste("Dim2 - ", var[2], "%", sep="")) +
+  ggtitle("MDS plot")
+
+onetwogg <- onetwo + geom_point_interactive(aes(tooltip = roots_glosses$rg), size = 2)
+ggiraph(code = print(onetwogg))
+onetwogg
+
+# To hover
+#my_gg <- onetwogg + geom_point_interactive(
+#    aes(tooltip = roots_glosses$rg, data_id = roots_glosses$rg), size = 2)
+#ggiraph(code = print(my_gg))
+
+###############
+# Dims 2 + 3
+###############
+
+# Make a plot that shows the MDS axes 2 and 3 and the variation
+points <- fit$points
+plt <- data.frame(Root=rownames(points),
+                            X=points[,2],
+                            Y=points[,3])
+plt <- mutate(plt, Root = solution$Root)
+
+
+twothree <- ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
+  geom_text() +
+  theme_bw() +
+  xlab(paste("Dim2 - ", var[2], "%", sep="")) +
+  ylab(paste("Dim3 - ", var[3], "%", sep="")) +
+  ggtitle("MDS plot")
+
+twothreegg <- twothree + geom_point_interactive(aes(tooltip = roots_glosses$rg), size = 2)
+ggiraph(code = print(twothreegg))
+twothreegg
+
+###############
+# Dims 1 + 3
+###############
+
+# Make a plot that shows the MDS axes 1 and 3 and the variation
+points <- fit$points
+plt <- data.frame(Root=rownames(points),
+                            X=points[,1],
+                            Y=points[,3])
+plt <- mutate(plt, Root = solution$Root)
+
+
+onethree <- ggplot(data=plt, aes(x=X, y=Y, label=Root)) +
+  geom_text() +
+  theme_bw() +
+  xlab(paste("Dim1 - ", var[1], "%", sep="")) +
+  ylab(paste("Dim3 - ", var[3], "%", sep="")) +
+  ggtitle("MDS plot")
+
+onethreegg <- onethree + geom_text_interactive(aes(tooltip = roots_glosses$rg), size = 2)
+ggiraph(code = print(onethreegg))
+onethreegg
+```
+
+# 3D Plots
+
+```{r}
+library(plotly)
+fig <- plot_ly(solution, x = ~Dimension.1, y = ~Dimension.2, z = ~Dimension.3, mode = 'text', text = ~rootnames)
+fig <- fig %>% add_markers()
+fig <- fig %>% layout(scene = list(xaxis = list(title = 'Dim 1'),
+                     yaxis = list(title = 'Dim 2'),
+                     zaxis = list(title = 'Dim 3')))
+
+fig
+```
+
+
+```{r}
+# Color according to Mat.prop.spec 
+fig <- plot_ly(new, x = ~Dimension.1, y = ~Dimension.2, z = ~Dimension.3, mode = 'text', text = ~rootnames,
+               color= ~Material.properties.specified)
+fig <- fig %>% add_markers()
+fig <- fig %>% layout(scene = list(xaxis = list(title = 'Dim 1'),
+                     yaxis = list(title = 'Dim 2'),
+                     zaxis = list(title = 'Dim 3')))
+
+fig
+```

@@ -383,3 +383,237 @@ plot4
 plot5
 plot6
 ```
+# Semantic categories
+
+```{r,include=FALSE}
+#Import dataset with semantic dimensions 
+semdim <- read_csv("../QP_Data/Tilbe_dimensions.csv", col_types = cols(
+  ROOT = col_factor(),
+  Support = col_factor(),
+  Leaning = col_factor(),
+  Suspension = col_factor(),
+  Blockage.of.motion = col_factor(),
+  Orientation.in.vertical = col_factor(),
+  Dispersion = col_factor(),
+  Configuration.of.parts = col_factor(),
+  Configuration.wrt.Ground= col_factor(),
+  Containment = col_factor(),
+  Length.of.vertical.dimension = col_factor(),
+  Animate = col_factor(),
+  Inanimate = col_factor(),
+  Numerosity = col_factor(),
+  Material.properties.specified = col_factor(),
+  Potential.energy = col_factor(),
+  Contact = col_factor()
+  ))
+
+# Change 0? and 1? into NAs
+levels(semdim$Suspension)[levels(semdim$Suspension)=='1?'] <- NA
+levels(semdim$Suspension)[levels(semdim$Suspension)==''] <- NA
+levels(semdim$Support)[levels(semdim$Support)==''] <- NA
+levels(semdim$Leaning)[levels(semdim$Leaning)==''] <- NA
+levels(semdim$Configuration.of.parts)[levels(semdim$Configuration.of.parts)==''] <- NA
+levels(semdim$Configuration.wrt.Ground)[levels(semdim$Configuration.wrt.Ground)==''] <- NA
+levels(semdim$Containment)[levels(semdim$Containment)==''] <- NA
+levels(semdim$Blockage.of.motion)[levels(semdim$Blockage.of.motion)=='0?'] <- NA
+levels(semdim$Blockage.of.motion)[levels(semdim$Blockage.of.motion)==''] <- NA
+levels(semdim$Orientation.in.vertical)[levels(semdim$Orientation.in.vertical)=='1?'] <- NA
+levels(semdim$Orientation.in.vertical)[levels(semdim$Orientation.in.vertical)==''] <- NA
+levels(semdim$Dispersion)[levels(semdim$Dispersion)=='1?'] <- NA
+levels(semdim$Dispersion)[levels(semdim$Dispersion)==''] <- NA
+levels(semdim$Length.of.vertical.dimension)[levels(semdim$Length.of.vertical.dimension)=='1?'] <- NA
+levels(semdim$Length.of.vertical.dimension)[levels(semdim$Length.of.vertical.dimension)==''] <- NA
+levels(semdim$Animate)[levels(semdim$Animate)=='1?'] <- NA
+levels(semdim$Numerosity)[levels(semdim$Numerosity)=='1?'] <- NA
+levels(semdim$Numerosity)[levels(semdim$Numerosity)=='0?'] <- NA
+levels(semdim$Numerosity)[levels(semdim$Numerosity)==''] <- NA
+levels(semdim$Material.properties.specified)[levels(semdim$Material.properties.specified)=='1?'] <- NA
+levels(semdim$Material.properties.specified)[levels(semdim$Material.properties.specified)==''] <- NA
+levels(semdim$Potential.energy)[levels(semdim$Potential.energy)=='1?'] <- NA
+levels(semdim$Potential.energy)[levels(semdim$Potential.energy)==''] <- NA
+levels(semdim$Contact)[levels(semdim$Contact)=='1?'] <- NA
+levels(semdim$Contact)[levels(semdim$Contact)=='0?'] <- NA
+levels(semdim$Contact)[levels(semdim$Contact)==''] <- NA
+
+summary(semdim)
+```
+
+```{r,include=FALSE}
+# Keep only those rows that have roots in common (between semantic dimensions and mds dimensions dataframes)
+semdimdf <- semdim[which(semdim$ROOT %in% rootnames),]
+mdsdimdf <- solution2[which(solution2$Root %in% semdimdf$ROOT),]
+
+# Merge both dataframes into one
+both <- cbind(semdimdf,mdsdimdf)
+```
+
+```{r,echo=FALSE}
+# Boxplots Dim1 ~ .Semantic variables
+
+# Prepare canvas
+#jpeg("Dim1Boxplots.jpeg")
+#par(mfrow=c(4,4))
+
+# Check correlation between Dim1 and Animate
+boxplot(both$Dimension.1 ~ both$Animate, ylab = "Dim 1", xlab = "Animate")
+
+# Check correlation between Dim1 and Support
+boxplot(both$Dimension.1 ~ both$Support,  ylab = "Dim 1", xlab = "Support")
+#boxplot(both$Dimension.1 ~ both$Support, na.action=na.omit, ylab = "Dim 1", xlab = "Support")
+
+# Check correlation between Dim1 and Leaning
+boxplot(both$Dimension.1 ~ both$Leaning, ylab = "Dim 1", xlab = "Leaning")
+
+# Check correlation between Dim1 and Suspension
+boxplot(both$Dimension.1 ~ both$Suspension, ylab = "Dim 1", xlab = "Suspension")
+
+# Check correlation between Dim1 and Blockage of motion
+boxplot(both$Dimension.1 ~ both$Blockage.of.motion, ylab = "Dim 1", xlab = "Blockage of motion")
+
+# Check correlation between Dim1 and Orientation in vertical
+boxplot(both$Dimension.1 ~ both$Orientation.in.vertical, ylab = "Dim 1", xlab = "Orientation in vert")
+
+# Check correlation between Dim1 and Dispersion
+boxplot(both$Dimension.1 ~ both$Dispersion, ylab = "Dim 1", xlab = "Dispersion")
+
+# Check correlation between Dim1 and Configuartion of parts
+boxplot(both$Dimension.1 ~ both$Configuration.of.parts, ylab = "Dim 1", xlab = "Config. of parts")
+
+# Check correlation between Dim1 and Configuration wrt Ground
+boxplot(both$Dimension.1 ~ both$Configuration.wrt.Ground, ylab = "Dim 1", xlab = "Config. wrt ground")
+
+# Check correlation between Dim1 and Containment
+boxplot(both$Dimension.1 ~ both$Containment, ylab = "Dim 1", xlab = "Containment")
+
+# Check correlation between Dim1 and Length of vertical dimension
+boxplot(both$Dimension.1 ~ both$Length.of.vertical.dimension, ylab = "Dim 1", xlab = "Length of vert dim")
+
+# Check correlation between Dim1 and Inanimate
+boxplot(both$Dimension.1 ~ both$Inanimate, ylab = "Dim 1", xlab = "Inanimate")
+
+# Check correlation between Dim1 and Numerosity
+boxplot(both$Dimension.1 ~ both$Numerosity, ylab = "Dim 1", xlab = "Numerosity")
+
+# Check correlation between Dim1 and Material properties specified
+boxplot(both$Dimension.1 ~ both$Material.properties.specified, ylab = "Dim 1", xlab = "Material properties spec")
+
+# Check correlation between Dim1 and Potential energy
+boxplot(both$Dimension.1 ~ both$Potential.energy, ylab = "Dim 1", xlab = "Potential energy")
+
+# Check correlation between Dim1 and Contact
+boxplot(both$Dimension.1 ~ both$Contact, ylab = "Dim 1", xlab = "Contact")
+#dev.off()
+```
+```{r,echo=FALSE}
+# Boxplots Dim2 ~ .Semantic variables
+
+# Prepare canvas
+#jpeg("Dim2Boxplots.jpeg")
+#par(mfrow=c(4,4))
+
+# Check correlation between Dim2 and Animate
+boxplot(both$Dimension.2 ~ both$Animate, ylab = "Dim 2", xlab = "Animate")
+
+# Check correlation between Dim2 and Support
+boxplot(both$Dimension.2 ~ both$Support, ylab = "Dim 2", xlab = "Support")
+
+# Check correlation between Dim2 and Leaning
+boxplot(both$Dimension.2 ~ both$Leaning, ylab = "Dim 2", xlab = "Leaning")
+
+# Check correlation between Dim2 and Suspension
+boxplot(both$Dimension.2 ~ both$Suspension, ylab = "Dim 2", xlab = "Suspension")
+
+# Check correlation between Dim2 and Blockage of motion
+boxplot(both$Dimension.2 ~ both$Blockage.of.motion, ylab = "Dim 2", xlab = "Blockage of motion")
+
+# Check correlation between Dim2 and Orientation in vertical
+boxplot(both$Dimension.2 ~ both$Orientation.in.vertical, ylab = "Dim 2", xlab = "Orientation in vert")
+
+# Check correlation between Dim2 and Dispersion
+boxplot(both$Dimension.2 ~ both$Dispersion, ylab = "Dim 2", xlab = "Dispersion")
+
+# Check correlation between Dim2 and Configuartion of parts
+boxplot(both$Dimension.2 ~ both$Configuration.of.parts, ylab = "Dim 2", xlab = "Config. of parts")
+
+# Check correlation between Dim2 and Configuration wrt Ground
+boxplot(both$Dimension.2 ~ both$Configuration.wrt.Ground, ylab = "Dim 2", xlab = "Config. wrt ground")
+
+# Check correlation between Dim2 and Containment
+boxplot(both$Dimension.2 ~ both$Containment, ylab = "Dim 2", xlab = "Containment")
+
+# Check correlation between Dim2 and Length of vertical dimension
+boxplot(both$Dimension.2 ~ both$Length.of.vertical.dimension, ylab = "Dim 2", xlab = "Length of vert dim")
+
+# Check correlation between Dim2 and Inanimate
+boxplot(both$Dimension.2 ~ both$Inanimate, ylab = "Dim 2", xlab = "Inanimate")
+
+# Check correlation between Dim2 and Numerosity
+boxplot(both$Dimension.2 ~ both$Numerosity, ylab = "Dim 2", xlab = "Numerosity")
+
+# Check correlation between Dim2 and Material properties specified
+boxplot(both$Dimension.2 ~ both$Material.properties.specified, ylab = "Dim 2", xlab = "Material properties spec")
+
+# Check correlation between Dim2 and Potential energy
+boxplot(both$Dimension.2 ~ both$Potential.energy, ylab = "Dim 2", xlab = "Potential energy")
+
+# Check correlation between Dim2 and Contact
+boxplot(both$Dimension.2 ~ both$Contact, ylab = "Dim 2", xlab = "Contact")
+#dev.off()
+```
+
+```{r,echo=FALSE}
+# Boxplots Dim3 ~ .Semantic variables
+
+# Prepare canvas
+#jpeg("Dim3Boxplots.jpeg")
+#par(mfrow=c(4,4))
+
+# Check correlation between Dim3 and Animate
+boxplot(both$Dimension.3 ~ both$Animate, ylab = "Dim 3", xlab = "Animate")
+
+# Check correlation between Dim3 and Support
+boxplot(both$Dimension.3 ~ both$Support, ylab = "Dim 3", xlab = "Support")
+
+# Check correlation between Dim3 and Leaning
+boxplot(both$Dimension.3 ~ both$Leaning, ylab = "Dim 3", xlab = "Leaning")
+
+# Check correlation between Dim3 and Suspension
+boxplot(both$Dimension.3 ~ both$Suspension, ylab = "Dim 3", xlab = "Suspension")
+
+# Check correlation between Dim3 and Blockage of motion
+boxplot(both$Dimension.3 ~ both$Blockage.of.motion, ylab = "Dim 3", xlab = "Blockage of motion")
+
+# Check correlation between Dim3 and Orientation in vertical
+boxplot(both$Dimension.3 ~ both$Orientation.in.vertical, ylab = "Dim 3", xlab = "Orientation in vert")
+
+# Check correlation between Dim3 and Dispersion
+boxplot(both$Dimension.3 ~ both$Dispersion, ylab = "Dim 3", xlab = "Dispersion")
+
+# Check correlation between Dim3 and Configuartion of parts
+boxplot(both$Dimension.3 ~ both$Configuration.of.parts, ylab = "Dim 3", xlab = "Config. of parts")
+
+# Check correlation between Dim3 and Configuration wrt Ground
+boxplot(both$Dimension.3 ~ both$Configuration.wrt.Ground, ylab = "Dim 3", xlab = "Config. wrt ground")
+
+# Check correlation between Dim3 and Containment
+boxplot(both$Dimension.3 ~ both$Containment, ylab = "Dim 3", xlab = "Containment")
+
+# Check correlation between Dim3 and Length of vertical dimension
+boxplot(both$Dimension.3 ~ both$Length.of.vertical.dimension, ylab = "Dim 3", xlab = "Length of vert dim")
+
+# Check correlation between Dim3 and Inanimate
+boxplot(both$Dimension.3 ~ both$Inanimate, ylab = "Dim 3", xlab = "Inanimate")
+
+# Check correlation between Dim3 and Numerosity
+boxplot(both$Dimension.3 ~ both$Numerosity, ylab = "Dim 3", xlab = "Numerosity")
+
+# Check correlation between Dim3 and Material properties specified
+boxplot(both$Dimension.3 ~ both$Material.properties.specified, ylab = "Dim 3", xlab = "Material properties spec")
+
+# Check correlation between Dim3 and Potential energy
+boxplot(both$Dimension.3 ~ both$Potential.energy, ylab = "Dim 3", xlab = "Potential energy")
+
+# Check correlation between Dim3 and Contact
+boxplot(both$Dimension.3 ~ both$Contact, ylab = "Dim 3", xlab = "Contact")
+#dev.off()
+```

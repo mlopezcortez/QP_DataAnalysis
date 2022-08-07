@@ -451,7 +451,7 @@ both <- cbind(semdimdf,mdsdimdf)
 # Boxplots Dim1 ~ .Semantic variables
 
 # Prepare canvas
-#jpeg("Dim1Boxplots.jpeg")
+#jpeg("Figures/Dim1BoxplotsAllRoots.jpeg")
 #par(mfrow=c(4,4))
 
 # Check correlation between Dim1 and Animate
@@ -508,7 +508,7 @@ boxplot(both$Dimension.1 ~ both$Contact, ylab = "Dim 1", xlab = "Contact")
 # Boxplots Dim2 ~ .Semantic variables
 
 # Prepare canvas
-#jpeg("Dim2Boxplots.jpeg")
+#jpeg("Dim2BoxplotsAllRoots.jpeg")
 #par(mfrow=c(4,4))
 
 # Check correlation between Dim2 and Animate
@@ -565,7 +565,7 @@ boxplot(both$Dimension.2 ~ both$Contact, ylab = "Dim 2", xlab = "Contact")
 # Boxplots Dim3 ~ .Semantic variables
 
 # Prepare canvas
-#jpeg("Dim3Boxplots.jpeg")
+#jpeg("Dim3BoxplotsAllRoots.jpeg")
 #par(mfrow=c(4,4))
 
 # Check correlation between Dim3 and Animate
